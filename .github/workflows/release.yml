@@ -40,7 +40,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Update package version
-        run: npm version "$RELEASE_VERSION" --no-git-tag-version
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
 
       - name: Install dependencies
         run: npm ci
@@ -51,11 +51,10 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Commit version bump
+      - name: Commit version bump (if needed)
         run: |
           git add package.json package-lock.json
-          git commit -m "chore: bump version to $RELEASE_VERSION"
-          git push
+          git diff --staged --quiet || (git commit -m "chore: bump version to $RELEASE_VERSION" && git push)
 
       - name: Create and push tag
         run: |
