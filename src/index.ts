@@ -20,10 +20,41 @@ export type {
   InvoiceInput,
   Invoice,
 
+  // Credit Note types
+  CreditNote,
+  CreditNoteInput,
+  CreditNoteLine,
+  CreditNoteStatus,
+
   // Signature types
   Signer,
   SignatureInput,
   SignatureRequest,
+
+  // Fiscal Compliance types
+  FiscalComplianceData,
+  FiscalIntegrityReport,
+  FiscalClosing,
+  FiscalEntry,
+  FiscalKillSwitchStatus,
+  FiscalRule,
+  FiscalAnchor,
+  FiscalAttestation,
+
+  // Billing types
+  BillingInvoice,
+  BillingUsage,
+  BillingTransaction,
+
+  // Statistics types
+  StatsOverview,
+  StatsMonthly,
+
+  // Tenant types
+  SubTenant,
+  SubTenantInput,
+  TenantProfile,
+  TenantBalance,
 
   // Result types
   ToolResult,

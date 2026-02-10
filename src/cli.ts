@@ -16,7 +16,7 @@ import {
 } from './config/generator.js';
 import type { ScellMcpConfig } from './types/index.js';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 const HELP_TEXT = `
 Scell.io MCP Configuration Generator v${VERSION}
@@ -33,6 +33,8 @@ Commands:
 Options:
   --base-url <url>     Custom API base URL (default: https://api.scell.io/api)
   --env <environment>  Environment: production, staging, development
+  --sandbox            Use sandbox mode (appends /sandbox to base URL)
+  --sandbox            Use sandbox mode (appends /sandbox to base URL)
   --output <file>      Write configuration to file instead of stdout
   --help, -h           Show this help message
   --version, -v        Show version number
@@ -60,6 +62,7 @@ interface CliOptions {
   baseUrl?: string;
   environment?: 'production' | 'staging' | 'development';
   output?: string;
+  sandbox?: boolean;
 }
 
 function parseArgs(args: string[]): CliOptions | null {
@@ -116,6 +119,9 @@ function parseArgs(args: string[]): CliOptions | null {
       }
       options.environment = env as 'production' | 'staging' | 'development';
       i += 2;
+    } else if (arg === '--sandbox') {
+      options.sandbox = true;
+      i += 1;
     } else if (arg === '--output' && args[i + 1]) {
       options.output = args[i + 1];
       i += 2;
@@ -156,6 +162,7 @@ async function main(): Promise<void> {
     apiKey: options.apiKey,
     baseUrl: options.baseUrl,
     environment: options.environment,
+    sandbox: options.sandbox,
   };
 
   // Validate configuration

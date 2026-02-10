@@ -11,7 +11,11 @@ const DEFAULT_BASE_URL = 'https://api.scell.io/api';
  * Generate the MCP server configuration
  */
 function generateServerConfig(config: ScellMcpConfig): McpServerConfig {
-  const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
+  let baseUrl = config.baseUrl || DEFAULT_BASE_URL;
+
+  if (config.sandbox === true) {
+    baseUrl += '/sandbox';
+  }
 
   return {
     command: 'npx',
@@ -21,6 +25,7 @@ function generateServerConfig(config: ScellMcpConfig): McpServerConfig {
       'SCELL_API_KEY': config.apiKey,
       'SCELL_BASE_URL': baseUrl,
       ...(config.environment && { 'SCELL_ENVIRONMENT': config.environment }),
+      ...(config.sandbox === true && { 'SCELL_SANDBOX': 'true' }),
     },
   };
 }
@@ -158,8 +163,10 @@ export function generateConfigWithInstructions(
 // - scell_get_signature: Get signature request status
 // - scell_list_signatures: List all signature requests
 // - scell_download_signed: Download signed document
-// - scell_cancel_signature: Cancel a signature request
-// - scell_send_reminder: Send signing reminder
+// - scell_get_balance: Get account balance
+// - scell_validate_siret: Validate SIRET number
+// - scell_validate_vat: Validate VAT number
+// - scell_get_audit_trail: Get audit trail for documents
 //
 // Documentation: https://docs.scell.io
 
@@ -201,6 +208,10 @@ export function validateConfig(config: Partial<ScellMcpConfig>): {
     if (!validEnvs.includes(config.environment)) {
       errors.push(`Environment must be one of: ${validEnvs.join(', ')}`);
     }
+  }
+
+  if (config.sandbox !== undefined && typeof config.sandbox !== 'boolean') {
+    errors.push('Sandbox must be a boolean');
   }
 
   return {
