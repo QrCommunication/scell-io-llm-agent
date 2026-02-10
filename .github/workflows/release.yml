@@ -85,7 +85,7 @@ jobs:
 
             See [README](https://github.com/QrCommunication/scell-io-llm-agent#readme) for full documentation.
 
-      - name: Publish to npm (OIDC)
-        run: npm publish --access public
-        # Uses OIDC trusted publishing - no token needed
-        # Provenance attestation is automatically generated
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
