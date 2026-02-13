@@ -1,10 +1,10 @@
-name: Create Release
+name: Release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 0.1.0, 0.2.0, 1.0.0)'
+        description: 'Release version (e.g., 1.2.0)'
         required: true
         type: string
       prerelease:
@@ -13,34 +13,21 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
-  id-token: write
-
 jobs:
-  release:
+  build-test:
+    name: Build and Test
     runs-on: ubuntu-latest
-    env:
-      RELEASE_VERSION: ${{ inputs.version }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '24'
           cache: 'npm'
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Update package version
-        run: npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
 
       - name: Install dependencies
         run: npm ci
@@ -51,7 +38,64 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Commit version bump (if needed)
+  publish:
+    name: Publish to npm
+    needs: build-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for OIDC trusted publishing
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update package version
+        run: npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Build
+        run: npm run build
+
+      # OIDC Trusted Publishing - no NODE_AUTH_TOKEN needed
+      # Provenance is generated automatically
+      - name: Publish to npm
+        run: npm publish --access public
+
+  github-release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Update package version
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Commit version bump
         run: |
           git add package.json package-lock.json
           git diff --staged --quiet || (git commit -m "chore: bump version to $RELEASE_VERSION" && git push)
@@ -61,31 +105,22 @@ jobs:
           git tag -a "v$RELEASE_VERSION" -m "Release v$RELEASE_VERSION"
           git push origin "v$RELEASE_VERSION"
 
+      - name: Extract release notes from CHANGELOG
+        id: changelog
+        run: |
+          NOTES=$(awk "/^## \[${RELEASE_VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="Release v${RELEASE_VERSION}"
+          fi
+          echo "$NOTES" > release_notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ inputs.version }}
           name: v${{ inputs.version }}
+          body_path: release_notes.md
+          draft: false
           prerelease: ${{ inputs.prerelease }}
-          generate_release_notes: true
-          body: |
-            ## @scell/mcp-client v${{ inputs.version }}
-
-            MCP client configuration generator for Scell.io API.
-
-            ### Installation
-            ```bash
-            npm install @scell/mcp-client
-            ```
-
-            ### Quick Start
-            ```bash
-            npx @scell/mcp-client claude YOUR_API_KEY
-            ```
-
-            See [README](https://github.com/QrCommunication/scell-io-llm-agent#readme) for full documentation.
-
-      - name: Publish to npm
-        run: npm publish --access public --provenance
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
