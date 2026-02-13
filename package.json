@@ -1,6 +1,6 @@
 {
   "name": "@scell/mcp-client",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "description": "MCP client configuration generator for Scell.io API - Electronic invoicing and signatures",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
