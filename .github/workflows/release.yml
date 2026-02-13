@@ -75,7 +75,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      workflows: write  # Required to push tags referencing workflow-modifying commits
     env:
       RELEASE_VERSION: ${{ inputs.version }}
     steps:
@@ -101,10 +100,24 @@ jobs:
           git add package.json package-lock.json
           git diff --staged --quiet || (git commit -m "chore: bump version to $RELEASE_VERSION" && git push)
 
-      - name: Create and push tag
+      - name: Create annotated tag via API
         run: |
-          git tag -a "v$RELEASE_VERSION" -m "Release v$RELEASE_VERSION"
-          git push origin "v$RELEASE_VERSION"
+          SHA=$(git rev-parse HEAD)
+          # Create annotated tag object
+          TAG_SHA=$(gh api repos/${{ github.repository }}/git/tags \
+            --method POST \
+            -f tag="v$RELEASE_VERSION" \
+            -f message="Release v$RELEASE_VERSION" \
+            -f object="$SHA" \
+            -f type="commit" \
+            --jq '.sha')
+          # Create tag reference pointing to the annotated tag object
+          gh api repos/${{ github.repository }}/git/refs \
+            --method POST \
+            -f ref="refs/tags/v$RELEASE_VERSION" \
+            -f sha="$TAG_SHA"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract release notes from CHANGELOG
         id: changelog
