@@ -75,6 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      workflows: write  # Required to push tags referencing workflow-modifying commits
     env:
       RELEASE_VERSION: ${{ inputs.version }}
     steps:
