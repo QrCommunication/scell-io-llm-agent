@@ -152,21 +152,49 @@ export function generateConfigWithInstructions(
 //
 // Save this configuration to: ${configPath}
 //
-// Available tools:
+// Available tools (54):
+//
+// --- Health & Authentication ---
 // - scell_health_check: Check API health status
 // - scell_validate_api_key: Validate your API key
+//
+// --- Electronic Invoicing ---
 // - scell_create_invoice: Create a new electronic invoice
 // - scell_get_invoice: Retrieve an invoice by ID
 // - scell_list_invoices: List all invoices
 // - scell_download_invoice: Download invoice PDF/XML
+//
+// --- Electronic Signatures ---
 // - scell_create_signature: Create a signature request
 // - scell_get_signature: Get signature request status
 // - scell_list_signatures: List all signature requests
 // - scell_download_signed: Download signed document
+// - scell_cancel_signature: Cancel a pending signature
+// - scell_send_reminder: Send reminder to pending signers
+//
+// --- Account & Validation ---
 // - scell_get_balance: Get account balance
 // - scell_validate_siret: Validate SIRET number
 // - scell_validate_vat: Validate VAT number
-// - scell_get_audit_trail: Get audit trail for documents
+// - scell_get_audit_trail: Get audit trail
+//
+// --- Fiscal Compliance (tenant key required) ---
+// - scell_get_fiscal_compliance: Get fiscal compliance dashboard
+// - scell_check_fiscal_integrity: Verify hash chain integrity
+// - scell_list_fiscal_closings: List daily closings
+// - scell_get_fiscal_attestation: Generate fiscal attestation
+// - scell_list_fiscal_entries: List fiscal ledger entries
+// - scell_get_kill_switch_status: Check kill-switch status
+// - scell_list_fiscal_rules: List applicable fiscal rules
+//
+// --- Credit Notes (tenant key required) ---
+// - scell_list_credit_notes: List credit notes
+// - scell_get_credit_note: Get credit note details
+// - scell_download_credit_note: Download credit note PDF
+// - scell_create_credit_note: Create a credit note
+// - scell_send_credit_note: Validate and send credit note
+// - scell_delete_credit_note: Delete draft credit note
+// - scell_get_remaining_creditable: Get remaining creditable amounts
 //
 // Documentation: https://docs.scell.io
 

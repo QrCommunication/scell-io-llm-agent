@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-11
+
+### Added
+
+- **18 New MCP Tools** (total: 30 tools):
+  - **Signature**: `cancel_signature`, `send_reminder`
+  - **System**: `health_check`, `validate_api_key`
+  - **Fiscal Compliance** (7 tools, tenant key required): `get_fiscal_compliance`, `check_fiscal_integrity`, `list_fiscal_closings`, `get_fiscal_attestation`, `list_fiscal_entries`, `get_kill_switch_status`, `list_fiscal_rules`
+  - **Credit Notes** (7 tools, tenant key required): `list_credit_notes`, `get_credit_note`, `download_credit_note`, `create_credit_note`, `send_credit_note`, `delete_credit_note`, `get_remaining_creditable`
+- **Dual Auth Support**: MCP server now supports both user API keys (`sk_*`) and tenant API keys (`tk_*`)
+- Updated tool list in generator comments (30 tools)
+
+### Changed
+
+- Bumped MCP server version to 1.1.0
+
 ## [1.1.0] - 2026-02-10
 
 ### Added
@@ -31,5 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Programmatic API for config generation
 - Config validation
 
+[1.2.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.2.0
 [1.1.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.1.0
 [0.1.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v0.1.0

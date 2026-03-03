@@ -23,7 +23,7 @@ npx @scell/mcp-client claude YOUR_API_KEY
 1. Generate the configuration:
 
 ```bash
-npx @scell/mcp-client claude sk_live_your_api_key_here
+npx @scell/mcp-client claude tk_live_your_api_key_here
 ```
 
 2. Save the output to your Claude Desktop config file:
@@ -41,7 +41,7 @@ npx @scell/mcp-client claude sk_live_your_api_key_here
 1. Generate the configuration:
 
 ```bash
-npx @scell/mcp-client cursor sk_live_your_api_key_here
+npx @scell/mcp-client cursor tk_live_your_api_key_here
 ```
 
 2. Save to `.cursor/mcp.json` in your project root (or `~/.cursor/mcp.json` for global config)
@@ -53,7 +53,7 @@ npx @scell/mcp-client cursor sk_live_your_api_key_here
 1. Generate the configuration:
 
 ```bash
-npx @scell/mcp-client vscode sk_live_your_api_key_here
+npx @scell/mcp-client vscode tk_live_your_api_key_here
 ```
 
 2. Save to `.vscode/mcp.json` in your project root
@@ -83,16 +83,16 @@ Options:
 
 ```bash
 # Generate Claude Desktop config
-scell-mcp claude sk_live_your_api_key_here
+scell-mcp claude tk_live_your_api_key_here
 
 # Generate Cursor config with staging environment
-scell-mcp cursor sk_live_your_api_key_here --env staging
+scell-mcp cursor tk_live_your_api_key_here --env staging
 
 # Generate config and save directly to file
-scell-mcp claude sk_live_your_api_key_here --output ~/.config/Claude/claude_desktop_config.json
+scell-mcp claude tk_live_your_api_key_here --output ~/.config/Claude/claude_desktop_config.json
 
 # Use environment variable for API key
-export SCELL_API_KEY=sk_live_your_api_key_here
+export SCELL_API_KEY=tk_live_your_api_key_here
 scell-mcp claude
 ```
 
@@ -127,6 +127,43 @@ Once configured, your AI assistant will have access to these tools:
 | `scell_cancel_signature` | Cancel a pending signature request |
 | `scell_send_reminder` | Send a reminder to pending signers |
 
+### Account & Validation
+
+| Tool | Description |
+|------|-------------|
+| `scell_get_balance` | Get account balance and credit information |
+| `scell_validate_siret` | Validate a French SIRET number |
+| `scell_validate_vat` | Validate a European VAT number |
+| `scell_get_audit_trail` | Get the audit trail for a document |
+
+### Fiscal Compliance (tenant key required)
+
+These tools require a tenant API key (`tk_*`) and provide access to the fiscal compliance features mandated by French law (LF 2026).
+
+| Tool | Description |
+|------|-------------|
+| `scell_get_fiscal_compliance` | Get fiscal compliance dashboard (ISCA status) |
+| `scell_check_fiscal_integrity` | Verify the integrity of the fiscal hash chain |
+| `scell_list_fiscal_closings` | List recent fiscal daily closings |
+| `scell_get_fiscal_attestation` | Generate a fiscal compliance attestation |
+| `scell_list_fiscal_entries` | List fiscal ledger entries with filters |
+| `scell_get_kill_switch_status` | Check the fiscal kill-switch status |
+| `scell_list_fiscal_rules` | List applicable fiscal rules (VAT rates, etc.) |
+
+### Credit Notes (tenant key required)
+
+These tools require a tenant API key (`tk_*`) and manage credit notes (avoirs) linked to invoices.
+
+| Tool | Description |
+|------|-------------|
+| `scell_list_credit_notes` | List credit notes with filtering |
+| `scell_get_credit_note` | Get credit note details |
+| `scell_download_credit_note` | Download credit note as PDF |
+| `scell_create_credit_note` | Create a credit note from an invoice |
+| `scell_send_credit_note` | Validate and send a draft credit note |
+| `scell_delete_credit_note` | Delete a draft credit note |
+| `scell_get_remaining_creditable` | Calculate remaining creditable amounts |
+
 ## Example Prompts
 
 Once the MCP server is configured, you can use natural language prompts like:
@@ -155,6 +192,30 @@ Send to john.doe@example.com for signature."
 "Send a reminder for all pending signature requests older than 7 days"
 ```
 
+### Fiscal Compliance Examples
+
+```
+"Show me the fiscal compliance status for my company"
+
+"Check the integrity of the fiscal hash chain for January 2026"
+
+"List the last 10 daily fiscal closings"
+
+"Generate a fiscal attestation for year 2025"
+```
+
+### Credit Note Examples
+
+```
+"List all draft credit notes"
+
+"Create a total credit note for invoice INV-2026-00042 because of duplicate billing"
+
+"Send credit note AV-2026-00003"
+
+"How much can still be credited on invoice INV-2026-00015?"
+```
+
 ## Programmatic Usage
 
 ```typescript
@@ -170,7 +231,7 @@ import {
 
 // Generate configuration
 const config: ScellMcpConfig = {
-  apiKey: 'sk_live_your_api_key_here',
+  apiKey: 'tk_live_your_api_key_here',
   baseUrl: 'https://api.scell.io/api', // optional
   environment: 'production', // optional
 };
@@ -253,7 +314,8 @@ The generated MCP configuration follows this structure:
 1. Sign up at [scell.io](https://scell.io)
 2. Navigate to Settings > API Keys
 3. Create a new API key with the required permissions
-4. Copy the key (it starts with `sk_live_` or `sk_test_`)
+4. Copy the key (it starts with `tk_live_` or `tk_test_`)
+5. For fiscal and credit note tools, use a tenant API key (starts with `tk_test_` or `tk_live_`)
 
 ## Support
 

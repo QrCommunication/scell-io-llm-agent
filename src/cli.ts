@@ -16,7 +16,7 @@ import {
 } from './config/generator.js';
 import type { ScellMcpConfig } from './types/index.js';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 const HELP_TEXT = `
 Scell.io MCP Configuration Generator v${VERSION}
@@ -41,13 +41,13 @@ Options:
 
 Examples:
   # Generate Claude Desktop config
-  scell-mcp claude sk_live_your_api_key_here
+  scell-mcp claude tk_live_your_api_key_here
 
   # Generate Cursor config with custom base URL
-  scell-mcp cursor sk_live_your_api_key_here --base-url https://api.staging.scell.io/api
+  scell-mcp cursor tk_live_your_api_key_here --base-url https://api.staging.scell.io/api
 
   # Generate config and save to file
-  scell-mcp claude sk_live_your_api_key_here --output ~/.config/Claude/claude_desktop_config.json
+  scell-mcp claude tk_live_your_api_key_here --output ~/.config/Claude/claude_desktop_config.json
 
 Environment Variables:
   SCELL_API_KEY        Default API key (used if not provided as argument)
