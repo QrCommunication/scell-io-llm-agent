@@ -181,6 +181,12 @@ Once the MCP server is configured, you can use natural language prompts like:
 "Download invoice INV-2024-001 as PDF"
 ```
 
+### International Invoicing
+
+```
+"Create an invoice for a Belgian client Entreprise Belge SPRL with VAT number BE0123456789, address 15 Avenue Louise 1050 Bruxelles Belgium, for consulting services 10h at 150€"
+```
+
 ### Signature Examples
 
 ```

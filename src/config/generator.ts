@@ -159,7 +159,7 @@ export function generateConfigWithInstructions(
 // - scell_validate_api_key: Validate your API key
 //
 // --- Electronic Invoicing ---
-// - scell_create_invoice: Create a new electronic invoice
+// - scell_create_invoice: Create a new electronic invoice (supports international parties: SIRET required only for French companies (country=FR). For EU companies, provide vat_number. For non-EU, provide legal_id + legal_id_scheme.)
 // - scell_get_invoice: Retrieve an invoice by ID
 // - scell_list_invoices: List all invoices
 // - scell_download_invoice: Download invoice PDF/XML

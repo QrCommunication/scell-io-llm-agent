@@ -51,10 +51,14 @@ export interface McpClientConfig {
 export interface Company {
   /** Company name */
   name: string;
-  /** SIRET number (14 digits) */
-  siret: string;
-  /** VAT number (optional) */
+  /** SIRET number (14 digits) — required only for French companies (country=FR) */
+  siret?: string;
+  /** VAT number (e.g. FR12345678901 or BE0123456789) */
   vatNumber?: string;
+  /** Legal identifier for non-EU companies (e.g. EIN, CRN) */
+  legal_id?: string;
+  /** Legal identifier scheme (e.g. "US:EIN", "GB:CRN") */
+  legal_id_scheme?: string;
   /** Street address */
   address: string;
   /** Postal code */
