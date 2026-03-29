@@ -152,7 +152,7 @@ export function generateConfigWithInstructions(
 //
 // Save this configuration to: ${configPath}
 //
-// Available tools (54):
+// Available tools (30):
 //
 // --- Health & Authentication ---
 // - scell_health_check: Check API health status
