@@ -1,0 +1,908 @@
+# @scell/mcp-client — MCP Agent for Scell.io
+> Version: 1.5.0 | License: MIT | Node.js >= 18.0.0
+
+## Overview
+
+`@scell/mcp-client` is a Model Context Protocol (MCP) configuration generator that connects Claude Desktop, Cursor, and VS Code to the Scell.io API. Once configured, your AI assistant gains access to 30 tools covering electronic invoicing (Factur-X/UBL/CII), eIDAS electronic signatures, fiscal compliance (French law LF 2026), and credit note management.
+
+The package does not run its own server. It generates the JSON configuration that points your MCP-compatible client to `https://api.scell.io/api`, where the live MCP server is hosted.
+
+---
+
+## Installation & Setup
+
+### Claude Desktop
+
+```bash
+npx @scell/mcp-client claude YOUR_API_KEY
+```
+
+Paste the output into your Claude Desktop config file and restart the app.
+
+| Platform | Config file path |
+|----------|-----------------|
+| macOS    | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows  | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Linux    | `~/.config/Claude/claude_desktop_config.json` |
+
+Write directly to the file in one command:
+
+```bash
+npx @scell/mcp-client claude YOUR_API_KEY --output ~/Library/Application\ Support/Claude/claude_desktop_config.json
+```
+
+### Cursor
+
+```bash
+npx @scell/mcp-client cursor YOUR_API_KEY
+```
+
+Save output to `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global), then restart Cursor.
+
+### VS Code
+
+```bash
+npx @scell/mcp-client vscode YOUR_API_KEY
+```
+
+Save output to `.vscode/mcp.json` in your project root, then restart VS Code.
+
+---
+
+## CLI Usage
+
+```
+scell-mcp <command> <api-key> [options]
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `claude <api-key>` | Generate Claude Desktop configuration |
+| `cursor <api-key>` | Generate Cursor IDE configuration |
+| `vscode <api-key>` | Generate VS Code configuration |
+| `generic <api-key>` | Generate generic MCP configuration with inline tool comments |
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--base-url <url>` | Custom API base URL (default: `https://api.scell.io/api`) |
+| `--env <environment>` | Environment: `production`, `staging`, or `development` |
+| `--sandbox` | Append `/sandbox` to the base URL for sandbox mode |
+| `--output <file>` | Write configuration to file instead of stdout |
+| `--help`, `-h` | Show help message |
+| `--version`, `-v` | Show version number |
+
+### Examples
+
+```bash
+# Generate Claude Desktop config
+scell-mcp claude tk_live_your_api_key_here
+
+# Generate Cursor config for staging
+scell-mcp cursor tk_live_your_api_key_here --env staging
+
+# Generate config with custom base URL
+scell-mcp cursor tk_live_your_api_key_here --base-url https://api.staging.scell.io/api
+
+# Activate sandbox mode
+scell-mcp claude tk_live_your_api_key_here --sandbox
+
+# Write directly to file
+scell-mcp claude tk_live_your_api_key_here --output ~/.config/Claude/claude_desktop_config.json
+
+# Use environment variable for API key
+export SCELL_API_KEY=tk_live_your_api_key_here
+scell-mcp claude
+```
+
+---
+
+## Available Tools (30)
+
+### Health & Authentication (2)
+
+| Tool | Description | Required params |
+|------|-------------|-----------------|
+| `scell_health_check` | Check API health status and availability of all services (database, cache, queue, signature, invoicing) | none |
+| `scell_validate_api_key` | Validate the configured API key, return tenant info, permissions, and rate-limit state | none |
+
+### Electronic Invoicing (4)
+
+| Tool | Description | Required params |
+|------|-------------|-----------------|
+| `scell_create_invoice` | Create a new electronic invoice in Factur-X, UBL, or CII format. SIRET is required only for French companies (`country=FR`). EU companies use `vatNumber`. Non-EU companies use `legal_id` + `legal_id_scheme`. | `invoiceNumber`, `invoiceDate`, `dueDate`, `seller` (Company), `buyer` (Company), `lines` (InvoiceLine[]) |
+| `scell_get_invoice` | Retrieve full invoice details by ID, including status, totals, and download URL | `id` |
+| `scell_list_invoices` | List invoices with optional filters (status, date range) and pagination | none |
+| `scell_download_invoice` | Download an invoice as PDF or XML | `id`, `format` (`pdf` or `xml`) |
+
+### Electronic Signatures (6)
+
+| Tool | Description | Required params |
+|------|-------------|-----------------|
+| `scell_create_signature` | Create a new eIDAS signature request for a document (base64-encoded). Supports SES, AES, QES levels. | `document` (base64), `filename`, `mimeType`, `signers` (Signer[]) |
+| `scell_get_signature` | Get full status and signer details for a signature request | `id` |
+| `scell_list_signatures` | List all signature requests with optional status filter and pagination | none |
+| `scell_download_signed` | Download the signed document once the signature request is completed | `id` |
+| `scell_cancel_signature` | Cancel a pending or in-progress signature request | `id` |
+| `scell_send_reminder` | Send an email reminder to all signers who have not yet signed | `id` |
+
+### Account & Validation (4)
+
+| Tool | Description | Required params |
+|------|-------------|-----------------|
+| `scell_get_balance` | Get current account credit balance and currency | none |
+| `scell_validate_siret` | Validate a French SIRET number (14 digits) against official registries | `siret` |
+| `scell_validate_vat` | Validate a European VAT number (e.g. `FR12345678901`, `BE0123456789`) | `vatNumber` |
+| `scell_get_audit_trail` | Retrieve the full audit trail for a document (invoice or signed document) | `documentId` |
+
+### Fiscal Compliance (7) — tenant key (`tk_*`) required
+
+These tools expose the fiscal compliance layer mandated by French law LF 2026. They require a tenant API key.
+
+| Tool | Description | Required params |
+|------|-------------|-----------------|
+| `scell_get_fiscal_compliance` | Get the ISCA fiscal compliance dashboard: closing coverage %, chain integrity %, open incidents, overall status (`CONFORME`, `ALERTE`, or `NON_CONFORME`) | none |
+| `scell_check_fiscal_integrity` | Verify the integrity of the SHA-256 hash chain for the fiscal ledger. Returns number of entries checked and broken links. | none |
+| `scell_list_fiscal_closings` | List recent daily fiscal closings with date, type, status, entry count, debit/credit totals, and chain hash | none |
+| `scell_get_fiscal_attestation` | Generate an annual fiscal compliance attestation (NF525) for a given year | `year` |
+| `scell_list_fiscal_entries` | List immutable fiscal ledger entries with optional filters (date range, entry type, entity type) | none |
+| `scell_get_kill_switch_status` | Check whether the fiscal emergency kill-switch is active, and who activated it and when | none |
+| `scell_list_fiscal_rules` | List all applicable fiscal rules (VAT rates, invoicing constraints, etc.) with their legal references and effective dates | none |
+
+### Credit Notes (7) — tenant key (`tk_*`) required
+
+Credit notes (avoirs) are linked to existing invoices. All tools require a tenant API key.
+
+| Tool | Description | Required params |
+|------|-------------|-----------------|
+| `scell_list_credit_notes` | List credit notes with optional status filter (`draft`, `sent`, `cancelled`) and pagination | none |
+| `scell_get_credit_note` | Get full details of a credit note, including line items, amounts, and linked invoice | `id` |
+| `scell_download_credit_note` | Download a credit note as PDF | `id` |
+| `scell_create_credit_note` | Create a credit note (total or partial) from an existing invoice. For partial notes, specify which invoice lines and quantities to credit. | `invoiceId`, `reason`, `type` (`total` or `partial`) |
+| `scell_send_credit_note` | Validate and send a draft credit note to the buyer | `id` |
+| `scell_delete_credit_note` | Delete a draft credit note (only drafts can be deleted) | `id` |
+| `scell_get_remaining_creditable` | Calculate how much can still be credited on an invoice (total minus already-issued credit notes) | `invoiceId` |
+
+---
+
+## Configuration
+
+### ScellMcpConfig interface
+
+```typescript
+interface ScellMcpConfig {
+  apiKey: string;                                      // Required. Your Scell.io API key.
+  baseUrl?: string;                                    // Optional. Default: "https://api.scell.io/api"
+  environment?: 'production' | 'staging' | 'development'; // Optional.
+  sandbox?: boolean;                                   // Optional. Appends /sandbox to baseUrl.
+}
+```
+
+### Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `SCELL_API_KEY` | Default API key — used when no key is passed as a CLI argument |
+| `SCELL_BASE_URL` | Default base URL — overrides the built-in default |
+
+### API key formats
+
+| Prefix | Type | Scope |
+|--------|------|-------|
+| `tk_live_` | Tenant key (production) | Full access: invoices, signatures, fiscal compliance, credit notes |
+| `tk_test_` | Tenant key (test) | Same as above, test environment |
+| `sk_live_` | User/secret key (production) | Invoices and signatures only |
+| `sk_test_` | User/secret key (test) | Invoices and signatures only |
+
+Fiscal compliance tools and credit note tools require a `tk_*` tenant key.
+
+### Generated configuration structure
+
+```json
+{
+  "mcpServers": {
+    "scell": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-http", "https://api.scell.io/api"],
+      "env": {
+        "X-Scell-API-Key": "your_api_key",
+        "SCELL_API_KEY": "your_api_key",
+        "SCELL_BASE_URL": "https://api.scell.io/api"
+      }
+    }
+  }
+}
+```
+
+With `--sandbox`:
+
+```json
+{
+  "mcpServers": {
+    "scell": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-http", "https://api.scell.io/api/sandbox"],
+      "env": {
+        "X-Scell-API-Key": "your_api_key",
+        "SCELL_API_KEY": "your_api_key",
+        "SCELL_BASE_URL": "https://api.scell.io/api/sandbox",
+        "SCELL_SANDBOX": "true"
+      }
+    }
+  }
+}
+```
+
+---
+
+## TypeScript Types
+
+All types are exported from `@scell/mcp-client`.
+
+### Configuration
+
+```typescript
+interface ScellMcpConfig {
+  apiKey: string;
+  baseUrl?: string;
+  environment?: 'production' | 'staging' | 'development';
+  sandbox?: boolean;
+}
+
+interface McpServerConfig {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+
+interface McpClientConfig {
+  mcpServers: { scell: McpServerConfig };
+}
+```
+
+### Invoice
+
+```typescript
+interface Company {
+  name: string;
+  siret?: string;          // Required only for French companies (country=FR)
+  vatNumber?: string;      // EU VAT number (e.g. FR12345678901, BE0123456789)
+  legal_id?: string;       // Legal identifier for non-EU companies (e.g. EIN, CRN)
+  legal_id_scheme?: string; // Scheme code (e.g. "US:EIN", "GB:CRN")
+  address: string;
+  postalCode: string;
+  city: string;
+  country: string;         // ISO 3166-1 alpha-2
+  email?: string;
+  phone?: string;
+}
+
+interface InvoiceLine {
+  description: string;
+  quantity: number;
+  unitPrice: number;       // Excluding tax
+  vatRate: number;         // Percentage, e.g. 20 for 20%
+  unit?: string;
+  productCode?: string;
+}
+
+interface InvoiceInput {
+  invoiceNumber: string;
+  invoiceDate: string;     // ISO 8601
+  dueDate: string;         // ISO 8601
+  seller: Company;
+  buyer: Company;
+  lines: InvoiceLine[];
+  currency?: string;       // ISO 4217, default "EUR"
+  format?: 'factur-x' | 'ubl' | 'cii';
+  notes?: string;
+  purchaseOrderRef?: string;
+  paymentTerms?: string;
+}
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  status: 'draft' | 'pending' | 'sent' | 'paid' | 'cancelled' | 'disputed';
+  totalExcludingTax: number;
+  totalVat: number;
+  totalIncludingTax: number;
+  currency: string;
+  format: string;
+  downloadUrl?: string;
+  paidAt?: string;
+  paymentReference?: string;
+  paymentNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### Credit Note
+
+```typescript
+type CreditNoteStatus = 'draft' | 'sent' | 'cancelled';
+
+interface CreditNoteInput {
+  invoiceId: string;
+  reason: string;
+  type: 'partial' | 'total';
+  items?: Array<{
+    invoiceLineId: string;
+    quantity?: number;
+  }>;
+}
+
+interface CreditNoteLine {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  total: number;
+}
+
+interface CreditNote {
+  id: string;
+  creditNoteNumber: string;
+  invoiceId: string;
+  status: CreditNoteStatus;
+  type: 'partial' | 'total';
+  reason: string;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  currency: string;
+  issueDate: string;
+  items?: CreditNoteLine[];
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### Signature
+
+```typescript
+interface Signer {
+  name: string;
+  email: string;
+  phone?: string;          // For SMS OTP
+  order?: number;          // For sequential signing
+  role?: string;
+}
+
+interface SignatureInput {
+  document: string;        // Base64 encoded
+  filename: string;
+  mimeType: string;
+  signers: Signer[];
+  signatureType?: 'simple' | 'advanced' | 'qualified';
+  signatureLevel?: 'SES' | 'AES' | 'QES';
+  expiresAt?: string;      // ISO 8601
+  emailSubject?: string;
+  emailMessage?: string;
+  webhookUrl?: string;
+  redirectUrl?: string;
+}
+
+interface SignatureRequest {
+  id: string;
+  status: 'draft' | 'pending' | 'in_progress' | 'completed' | 'expired' | 'cancelled';
+  filename: string;
+  signers: Array<Signer & {
+    status: 'pending' | 'signed' | 'declined';
+    signedAt?: string;
+  }>;
+  signingUrl?: string;
+  downloadUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+}
+```
+
+### Fiscal Compliance
+
+```typescript
+type FiscalComplianceStatus = 'CONFORME' | 'ALERTE' | 'NON_CONFORME';
+
+interface FiscalComplianceData {
+  closingCoveragePercent: number;
+  chainIntegrityPercent: number;
+  openIncidentsCount: number;
+  overallStatus: FiscalComplianceStatus;
+  lastIntegrityCheckAt: string | null;
+  lastClosingAt: string | null;
+  lastClosingDate: string | null;
+  totalFiscalEntries: number;
+  daysWithActivity: number;
+  daysClosed: number;
+}
+
+interface FiscalIntegrityReport {
+  isValid: boolean;
+  entriesChecked: number;
+  brokenLinks: number;
+  details?: Record<string, unknown>;
+}
+
+interface FiscalClosing {
+  id: string;
+  closingDate: string;
+  closingType: string;
+  status: string;
+  entriesCount: number;
+  totalDebit: number;
+  totalCredit: number;
+  chainHash?: string;
+  environment?: string;
+  createdAt?: string;
+}
+
+interface FiscalEntry {
+  id: string;
+  sequenceNumber: number;
+  entryType: string;
+  fiscalDate: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  dataHash?: string;
+  previousHash?: string;
+  chainHash?: string;
+  environment?: string;
+  legalStatus?: string;
+  createdAt?: string;
+}
+
+interface FiscalKillSwitchStatus {
+  isActive: boolean;
+  killSwitch: {
+    id: string;
+    isActive: boolean;
+    activatedAt: string;
+    reason: string;
+    activatedBy: string;
+    deactivatedAt?: string | null;
+    deactivatedBy?: string | null;
+  } | null;
+}
+
+interface FiscalRule {
+  id: string;
+  ruleKey: string;
+  name: string;
+  category: 'vat' | 'invoicing' | 'credit_note' | 'closing' | 'export';
+  ruleDefinition: Record<string, unknown>;
+  version: number;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  legalReference?: string | null;
+  description?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+interface FiscalAnchor {
+  id: string;
+  anchorType: string;
+  sourceHash: string;
+  anchorReference?: string | null;
+  anchorProvider?: string | null;
+  anchoredAt?: string | null;
+  createdAt?: string;
+}
+
+interface FiscalAttestation {
+  year: number;
+  tenantName: string;
+  softwareVersion: string;
+  compliance: Record<string, unknown>;
+  generatedAt?: string;
+  certificateHash?: string;
+}
+```
+
+### Billing
+
+```typescript
+interface BillingInvoice {
+  id: string;
+  invoiceNumber: string;
+  period: string;
+  totalHt: number;
+  totalTax: number;
+  totalTtc: number;
+  status: string;
+  currency: string;
+  issuedAt?: string | null;
+  dueDate?: string | null;
+  paidAt?: string | null;
+}
+
+interface BillingUsage {
+  period: string;
+  invoicesCount: number;
+  creditNotesCount: number;
+  signaturesCount: number;
+  totalCost: number;
+  currency: string;
+}
+
+interface BillingTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  currency: string;
+  description?: string | null;
+  reference?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+}
+```
+
+### Statistics
+
+```typescript
+interface StatsOverview {
+  totalInvoices: number;
+  totalCreditNotes: number;
+  totalRevenue: number;
+  totalExpenses: number;
+  activeSubTenants: number;
+  currency: string;
+}
+
+interface StatsMonthly {
+  month: string;
+  invoicesCount: number;
+  creditNotesCount: number;
+  revenue: number;
+  expenses: number;
+}
+```
+
+### Tenant & Sub-Tenant
+
+```typescript
+interface SubTenantInput {
+  externalId?: string;
+  name: string;
+  siret?: string;
+  siren?: string;
+  email?: string;
+  phone?: string;
+  address?: {
+    line1: string;
+    line2?: string;
+    postalCode: string;
+    city: string;
+    country?: string;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+interface SubTenant {
+  id: string;
+  externalId?: string | null;
+  name: string;
+  siret?: string | null;
+  siren?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: {
+    line1: string;
+    line2?: string;
+    postalCode: string;
+    city: string;
+    country?: string;
+  } | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface TenantProfile {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  siret?: string;
+  siren?: string;
+  kybStatus?: string;
+  environment?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface TenantBalance {
+  credits: number;
+  currency: string;
+}
+```
+
+### Generic Results
+
+```typescript
+interface ToolResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  errorCode?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
+}
+```
+
+### API Responses
+
+```typescript
+interface HealthCheckResponse {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  version: string;
+  services: {
+    database: boolean;
+    cache: boolean;
+    queue: boolean;
+    signature: boolean;
+    invoicing: boolean;
+  };
+}
+
+interface ApiKeyValidationResponse {
+  valid: boolean;
+  tenant?: {
+    id: string;
+    name: string;
+    plan: string;
+  };
+  permissions?: string[];
+  rateLimit?: {
+    limit: number;
+    remaining: number;
+    reset: string;
+  };
+}
+```
+
+### Webhooks
+
+```typescript
+type WebhookEventType =
+  | 'invoice.created'
+  | 'invoice.sent'
+  | 'invoice.paid'
+  | 'invoice.cancelled'
+  | 'invoice.incoming.received'
+  | 'invoice.incoming.validated'
+  | 'invoice.incoming.accepted'
+  | 'invoice.incoming.rejected'
+  | 'invoice.incoming.disputed'
+  | 'invoice.incoming.paid'
+  | 'credit_note.created'
+  | 'credit_note.sent'
+  | 'credit_note.cancelled'
+  | 'signature.created'
+  | 'signature.signed'
+  | 'signature.completed'
+  | 'signature.expired'
+  | 'signature.declined';
+
+interface WebhookPayload<T = unknown> {
+  event: WebhookEventType;
+  timestamp: string;
+  data: T;
+  signature: string;         // For HMAC verification
+}
+```
+
+---
+
+## Programmatic Usage
+
+```typescript
+import {
+  generateClaudeDesktopConfig,
+  generateCursorConfig,
+  generateVSCodeConfig,
+  generateGenericConfig,
+  generateConfigWithInstructions,
+  getConfigPath,
+  validateConfig,
+  type ScellMcpConfig,
+  type InvoiceInput,
+  type SignatureInput,
+} from '@scell/mcp-client';
+
+const config: ScellMcpConfig = {
+  apiKey: 'tk_live_your_api_key_here',
+  baseUrl: 'https://api.scell.io/api',  // optional
+  environment: 'production',             // optional
+};
+
+// Validate before generating
+const validation = validateConfig(config);
+if (!validation.valid) {
+  console.error('Invalid config:', validation.errors);
+}
+
+// Generate for each client
+const claudeConfig = generateClaudeDesktopConfig(config);
+const cursorConfig  = generateCursorConfig(config);
+const vscodeConfig  = generateVSCodeConfig(config);
+const genericConfig = generateGenericConfig(config);
+
+// Get expected config file path
+const claudeConfigPath = getConfigPath('claude');   // platform-aware
+const cursorConfigPath  = getConfigPath('cursor');  // ".cursor/mcp.json"
+const vscodeConfigPath  = getConfigPath('vscode');  // ".vscode/mcp.json"
+
+// Generate with inline tool comments (useful for documentation)
+const withComments = generateConfigWithInstructions(config, 'claude');
+```
+
+---
+
+## Example Prompts
+
+### Health & Authentication
+
+```
+"Is the Scell.io API available right now?"
+"Is my API key valid? What permissions does it have?"
+```
+
+### Electronic Invoicing
+
+```
+"Create an invoice for Acme Corp, SIRET 12345678901234,
+ for consulting services: 10 hours at 150 EUR/hour. Due in 30 days. Factur-X format."
+
+"List all unpaid invoices from the last month."
+
+"Download invoice INV-2026-001 as PDF."
+
+"Get the details of invoice abc-123."
+```
+
+### Electronic Signatures
+
+```
+"Create a signature request for the attached contract.
+ Send to john.doe@example.com for signature."
+
+"Check the status of signature request sig_abc123."
+
+"Send a reminder for all pending signature requests older than 7 days."
+
+"Cancel signature request sig_xyz."
+
+"Download the signed document for request sig_abc123."
+```
+
+### Account & Validation
+
+```
+"What is my current credit balance?"
+
+"Is SIRET 12345678901234 valid?"
+
+"Validate VAT number BE0123456789."
+
+"Get the audit trail for document doc_abc123."
+```
+
+### Fiscal Compliance
+
+```
+"Show me the fiscal compliance status for my company."
+
+"Check the integrity of the fiscal hash chain."
+
+"List the last 10 daily fiscal closings."
+
+"Generate a fiscal attestation for year 2025."
+
+"List all active fiscal rules for VAT."
+
+"Is the fiscal kill-switch active?"
+```
+
+### Credit Notes
+
+```
+"List all draft credit notes."
+
+"Create a total credit note for invoice INV-2026-00042 because of duplicate billing."
+
+"Send credit note AV-2026-00003."
+
+"How much can still be credited on invoice INV-2026-00015?"
+
+"Delete draft credit note AV-2026-00010."
+```
+
+---
+
+## International Invoicing
+
+The `scell_create_invoice` tool supports invoices between parties of any country. Field requirements depend on the buyer/seller country:
+
+| Party country | Required identifier field |
+|---------------|--------------------------|
+| France (`FR`) | `siret` (14 digits) |
+| EU country (non-FR) | `vatNumber` (e.g. `BE0123456789`, `DE123456789`) |
+| Non-EU country | `legal_id` + `legal_id_scheme` (e.g. `legal_id: "12-3456789"`, `legal_id_scheme: "US:EIN"`) |
+
+Example prompt for an international invoice:
+
+```
+"Create an invoice for a Belgian client Entreprise Belge SPRL
+ with VAT number BE0123456789,
+ address 15 Avenue Louise, 1050 Bruxelles, Belgium,
+ for consulting services: 10 hours at 150 EUR/hour."
+```
+
+Example prompt for a UK client:
+
+```
+"Invoice Client UK Ltd, company registration CRN 12345678,
+ address 10 Downing Street, London SW1A 2AA, United Kingdom,
+ for software development: 5 days at 800 EUR/day."
+```
+
+The `country` field uses ISO 3166-1 alpha-2 codes (`FR`, `BE`, `DE`, `GB`, `US`, etc.).
+
+---
+
+## Changelog
+
+### [1.5.0] — current
+
+- Package version bump (no new tools)
+
+### [1.2.0] — 2026-02-11
+
+- Added 18 new tools (total: 30 tools)
+  - Signature: `scell_cancel_signature`, `scell_send_reminder`
+  - System: `scell_health_check`, `scell_validate_api_key`
+  - Fiscal Compliance (7 tools, tenant key required): `scell_get_fiscal_compliance`, `scell_check_fiscal_integrity`, `scell_list_fiscal_closings`, `scell_get_fiscal_attestation`, `scell_list_fiscal_entries`, `scell_get_kill_switch_status`, `scell_list_fiscal_rules`
+  - Credit Notes (7 tools, tenant key required): `scell_list_credit_notes`, `scell_get_credit_note`, `scell_download_credit_note`, `scell_create_credit_note`, `scell_send_credit_note`, `scell_delete_credit_note`, `scell_get_remaining_creditable`
+- Dual auth support: user keys (`sk_*`) and tenant keys (`tk_*`)
+
+### [1.1.0] — 2026-02-10
+
+- Added `--sandbox` CLI flag and `sandbox` config option
+- Added Fiscal Compliance types: `FiscalComplianceData`, `FiscalIntegrityReport`, `FiscalClosing`, `FiscalEntry`, `FiscalKillSwitchStatus`, `FiscalRule`, `FiscalAnchor`, `FiscalAttestation`
+- Added Credit Note types: `CreditNote`, `CreditNoteInput`, `CreditNoteLine`, `CreditNoteStatus`
+- Added Billing types: `BillingInvoice`, `BillingUsage`, `BillingTransaction`
+- Added Stats types: `StatsOverview`, `StatsMonthly`
+- Added Sub-Tenant types: `SubTenant`, `SubTenantInput`
+- Added Tenant types: `TenantProfile`, `TenantBalance`
+- Updated `Invoice` type: added `disputed` status, `paidAt`, `paymentReference`, `paymentNote`
+- Updated Webhook events: added incoming invoice events and credit note events
+- Added tools: `scell_get_balance`, `scell_validate_siret`, `scell_validate_vat`, `scell_get_audit_trail`
+
+### [0.1.0] — 2026-01-24
+
+- Initial release
+- MCP configuration generator for Claude Desktop, Cursor, VS Code
+- CLI tool `scell-mcp`
+- TypeScript types for invoices, signatures, webhooks
+- Programmatic API and config validation
+
+---
+
+## Support
+
+- Documentation: https://docs.scell.io
+- Issues: https://github.com/QrCommunication/scell-io-llm-agent/issues
+- Email: support@scell.io
