@@ -149,6 +149,9 @@ These tools require a tenant API key (`tk_*`) and provide access to the fiscal c
 | `scell_list_fiscal_entries` | List fiscal ledger entries with filters |
 | `scell_get_kill_switch_status` | Check the fiscal kill-switch status |
 | `scell_list_fiscal_rules` | List applicable fiscal rules (VAT rates, etc.) |
+| `scell_download_measures_register` | Download the ISCA measures register as PDF |
+| `scell_download_technical_dossier` | Download the ISCA technical dossier as PDF |
+| `scell_download_self_attestation` | Download the ISCA self-attestation as PDF |
 
 ### Credit Notes (tenant key required)
 

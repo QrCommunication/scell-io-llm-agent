@@ -428,6 +428,15 @@ export interface FiscalAttestation {
   certificateHash?: string;
 }
 
+/**
+ * ISCA compliance document download result
+ */
+export interface ISCADocument {
+  filename: string;
+  content: ArrayBuffer;
+  generated_at: string;
+}
+
 // ============================================================================
 // Billing Types
 // ============================================================================

@@ -3,7 +3,7 @@
 
 ## Overview
 
-`@scell/mcp-client` is a Model Context Protocol (MCP) configuration generator that connects Claude Desktop, Cursor, and VS Code to the Scell.io API. Once configured, your AI assistant gains access to 30 tools covering electronic invoicing (Factur-X/UBL/CII), eIDAS electronic signatures, fiscal compliance (French law LF 2026), and credit note management.
+`@scell/mcp-client` is a Model Context Protocol (MCP) configuration generator that connects Claude Desktop, Cursor, and VS Code to the Scell.io API. Once configured, your AI assistant gains access to 33 tools covering electronic invoicing (Factur-X/UBL/CII), eIDAS electronic signatures, fiscal compliance (French law LF 2026), and credit note management.
 
 The package does not run its own server. It generates the JSON configuration that points your MCP-compatible client to `https://api.scell.io/api`, where the live MCP server is hosted.
 
@@ -22,7 +22,7 @@ Where SLUG5 = first 5 characters of tenant slug (uppercase). Sequences reset mon
 
 The number is assigned:
 - At creation: temporary DRAFT number
-- At submit/send: definitive fiscal number (immutable per NF525)
+- At submit/send: definitive fiscal number (immutable per ISCA)
 
 ---
 
@@ -117,7 +117,7 @@ scell-mcp claude
 
 ---
 
-## Available Tools (30)
+## Available Tools (33)
 
 ### Health & Authentication (2)
 
@@ -155,7 +155,7 @@ scell-mcp claude
 | `scell_validate_vat` | Validate a European VAT number (e.g. `FR12345678901`, `BE0123456789`) | `vatNumber` |
 | `scell_get_audit_trail` | Retrieve the full audit trail for a document (invoice or signed document) | `documentId` |
 
-### Fiscal Compliance (7) — tenant key (`tk_*`) required
+### Fiscal Compliance (10) — tenant key (`tk_*`) required
 
 These tools expose the fiscal compliance layer mandated by French law LF 2026. They require a tenant API key.
 
@@ -164,10 +164,13 @@ These tools expose the fiscal compliance layer mandated by French law LF 2026. T
 | `scell_get_fiscal_compliance` | Get the ISCA fiscal compliance dashboard: closing coverage %, chain integrity %, open incidents, overall status (`CONFORME`, `ALERTE`, or `NON_CONFORME`) | none |
 | `scell_check_fiscal_integrity` | Verify the integrity of the SHA-256 hash chain for the fiscal ledger. Returns number of entries checked and broken links. | none |
 | `scell_list_fiscal_closings` | List recent daily fiscal closings with date, type, status, entry count, debit/credit totals, and chain hash | none |
-| `scell_get_fiscal_attestation` | Generate an annual fiscal compliance attestation (NF525) for a given year | `year` |
+| `scell_get_fiscal_attestation` | Generate an annual fiscal compliance attestation (ISCA) for a given year | `year` |
 | `scell_list_fiscal_entries` | List immutable fiscal ledger entries with optional filters (date range, entry type, entity type) | none |
 | `scell_get_kill_switch_status` | Check whether the fiscal emergency kill-switch is active, and who activated it and when | none |
 | `scell_list_fiscal_rules` | List all applicable fiscal rules (VAT rates, invoicing constraints, etc.) with their legal references and effective dates | none |
+| `scell_download_measures_register` | Download the ISCA measures register as PDF | none |
+| `scell_download_technical_dossier` | Download the ISCA technical dossier as PDF | none |
+| `scell_download_self_attestation` | Download the ISCA self-attestation as PDF | none |
 
 ### Credit Notes (7) — tenant key (`tk_*`) required
 

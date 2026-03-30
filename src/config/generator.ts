@@ -152,7 +152,7 @@ export function generateConfigWithInstructions(
 //
 // Save this configuration to: ${configPath}
 //
-// Available tools (30):
+// Available tools (33):
 //
 // --- Health & Authentication ---
 // - scell_health_check: Check API health status
@@ -186,6 +186,9 @@ export function generateConfigWithInstructions(
 // - scell_list_fiscal_entries: List fiscal ledger entries
 // - scell_get_kill_switch_status: Check kill-switch status
 // - scell_list_fiscal_rules: List applicable fiscal rules
+// - scell_download_measures_register: Download the ISCA measures register as PDF
+// - scell_download_technical_dossier: Download the ISCA technical dossier as PDF
+// - scell_download_self_attestation: Download the ISCA self-attestation as PDF
 //
 // --- Credit Notes (tenant key required) ---
 // - scell_list_credit_notes: List credit notes
