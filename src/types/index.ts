@@ -656,6 +656,58 @@ export interface ApiKeyValidationResponse {
 }
 
 // ============================================================================
+// Onboarding Types
+// ============================================================================
+
+/**
+ * Response from initiating a SuperPDP OAuth2 authorization
+ */
+export interface OnboardingAuthorizeResponse {
+  /** The SuperPDP OAuth2 authorization URL to redirect the user to */
+  authorize_url: string;
+  /** State parameter for CSRF protection */
+  state: string;
+}
+
+/**
+ * Response from the SuperPDP OAuth2 callback
+ */
+export interface OnboardingCallbackResponse {
+  /** Whether the authorization was successful */
+  success: boolean;
+  /** The authorization code returned by SuperPDP */
+  authorization_code?: string;
+  /** The tenant object created or updated after authorization */
+  tenant?: TenantProfile;
+}
+
+/**
+ * Onboarding session
+ */
+export interface OnboardingSession {
+  /** Unique session ID */
+  id: string;
+  /** Session status */
+  status: 'pending' | 'authorized' | 'completed' | 'failed';
+  /** Associated tenant (if onboarding completed) */
+  tenant?: TenantProfile;
+  /** Creation timestamp */
+  createdAt: string;
+  /** Last update timestamp */
+  updatedAt: string;
+}
+
+/**
+ * Input for creating an onboarding session
+ */
+export interface OnboardingSessionInput {
+  /** External reference ID for the session */
+  externalId?: string;
+  /** Metadata to attach to the session */
+  metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
 // Webhook Types
 // ============================================================================
 

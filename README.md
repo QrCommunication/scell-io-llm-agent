@@ -167,6 +167,17 @@ These tools require a tenant API key (`tk_*`) and manage credit notes (avoirs) l
 | `scell_delete_credit_note` | Delete a draft credit note |
 | `scell_get_remaining_creditable` | Calculate remaining creditable amounts |
 
+### Partner Onboarding (publishable key required)
+
+These tools require a publishable key (`pk_*`) and handle partner tenant onboarding via SuperPDP's OAuth2 tunnel.
+
+| Tool | Description |
+|------|-------------|
+| `scell_onboarding_create_session` | Create a new onboarding session |
+| `scell_onboarding_get_session` | Get onboarding session status and result |
+| `scell_onboarding_superpdp_authorize` | Start the SuperPDP OAuth2 flow — returns `authorize_url` and `state` |
+| `scell_onboarding_superpdp_callback` | Complete the SuperPDP OAuth2 flow — returns `authorization_code` and tenant |
+
 ## Example Prompts
 
 Once the MCP server is configured, you can use natural language prompts like:
@@ -223,6 +234,18 @@ Send to john.doe@example.com for signature."
 "Send credit note AV-2026-00003"
 
 "How much can still be credited on invoice INV-2026-00015?"
+```
+
+### Onboarding Examples
+
+```
+"Start the onboarding process for a new partner tenant"
+
+"Get the SuperPDP authorization URL so the partner can connect their account"
+
+"Complete the SuperPDP OAuth2 callback with state=abc123 and code=xyz456"
+
+"Check the status of onboarding session sess_abc123"
 ```
 
 ## Programmatic Usage

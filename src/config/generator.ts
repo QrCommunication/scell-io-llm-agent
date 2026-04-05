@@ -152,7 +152,7 @@ export function generateConfigWithInstructions(
 //
 // Save this configuration to: ${configPath}
 //
-// Available tools (33):
+// Available tools (37):
 //
 // --- Health & Authentication ---
 // - scell_health_check: Check API health status
@@ -198,6 +198,12 @@ export function generateConfigWithInstructions(
 // - scell_send_credit_note: Validate and send credit note
 // - scell_delete_credit_note: Delete draft credit note
 // - scell_get_remaining_creditable: Get remaining creditable amounts
+//
+// --- Partner Onboarding (publishable key required) ---
+// - scell_onboarding_create_session: Create a new onboarding session
+// - scell_onboarding_get_session: Get onboarding session status
+// - scell_onboarding_superpdp_authorize: Start SuperPDP OAuth2 flow — returns authorize_url and state
+// - scell_onboarding_superpdp_callback: Complete SuperPDP OAuth2 flow — returns authorization_code and tenant
 //
 // Documentation: https://docs.scell.io
 

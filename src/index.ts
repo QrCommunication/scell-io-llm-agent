@@ -64,6 +64,12 @@ export type {
   HealthCheckResponse,
   ApiKeyValidationResponse,
 
+  // Onboarding types
+  OnboardingAuthorizeResponse,
+  OnboardingCallbackResponse,
+  OnboardingSession,
+  OnboardingSessionInput,
+
   // Webhook types
   WebhookEventType,
   WebhookPayload,
