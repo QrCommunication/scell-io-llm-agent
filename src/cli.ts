@@ -16,7 +16,7 @@ import {
 } from './config/generator.js';
 import type { ScellMcpConfig } from './types/index.js';
 
-const VERSION = '1.9.0';
+const VERSION = '1.9.1';
 
 const HELP_TEXT = `
 Scell.io MCP Configuration Generator v${VERSION}
