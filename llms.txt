@@ -1,9 +1,9 @@
 # @scell/mcp-client — MCP Agent for Scell.io
-> Version: 1.5.0 | License: MIT | Node.js >= 18.0.0
+> Version: 1.9.0 | License: MIT | Node.js >= 18.0.0
 
 ## Overview
 
-`@scell/mcp-client` is a Model Context Protocol (MCP) configuration generator that connects Claude Desktop, Cursor, and VS Code to the Scell.io API. Once configured, your AI assistant gains access to 33 tools covering electronic invoicing (Factur-X/UBL/CII), eIDAS electronic signatures, fiscal compliance (French law LF 2026), and credit note management.
+`@scell/mcp-client` is a Model Context Protocol (MCP) configuration generator that connects Claude Desktop, Cursor, and VS Code to the Scell.io API. Once configured, your AI assistant gains access to 37 tools covering electronic invoicing (Factur-X/UBL/CII), eIDAS electronic signatures, fiscal compliance (French law LF 2026), credit note management, and partner onboarding via SuperPDP OAuth2.
 
 The package does not run its own server. It generates the JSON configuration that points your MCP-compatible client to `https://api.scell.io/api`, where the live MCP server is hosted.
 
@@ -117,7 +117,7 @@ scell-mcp claude
 
 ---
 
-## Available Tools (33)
+## Available Tools (37)
 
 ### Health & Authentication (2)
 
@@ -908,9 +908,37 @@ The `country` field uses ISO 3166-1 alpha-2 codes (`FR`, `BE`, `DE`, `GB`, `US`,
 
 ## Changelog
 
-### [1.5.0] — current
+### [1.9.0] — current
 
-- Package version bump (no new tools)
+- Version bump to publish all SuperPDP onboarding changes
+
+### [1.8.0] — 2026-04-07
+
+- Version bump to publish SuperPDP OAuth2 onboarding tools to npm
+
+### [1.7.0] — 2026-04-07
+
+- Added SuperPDP OAuth2 onboarding section to llms.txt documentation
+
+### [1.6.2] — 2026-04-07
+
+- Added 3 ISCA document download tools: `scell_download_measures_register`, `scell_download_technical_dossier`, `scell_download_self_attestation`; renamed NF525 → ISCA throughout (total: 33 tools)
+
+### [1.6.0] — 2026-04-07
+
+- Updated invoice creation for server-generated invoice numbers; SIRET now optional (French companies only)
+
+### [1.5.0] — 2026-02-12
+
+- International invoicing support: optional SIRET, EU `vatNumber`, non-EU `legal_id` + `legal_id_scheme` fields
+
+### [1.4.0] — 2026-02-11
+
+- Fixed `--sandbox` duplicate in CLI help; corrected tool count to 30
+
+### [1.3.0] — 2026-02-11
+
+- Fixed API key prefix documentation (`sk_*` → `tk_*`); bumped tool count
 
 ### [1.2.0] — 2026-02-11
 

@@ -74,6 +74,7 @@ Commands:
 Options:
   --base-url <url>     Custom API base URL (default: https://api.scell.io/api)
   --env <environment>  Environment: production, staging, development
+  --sandbox            Use sandbox mode (appends /sandbox to base URL)
   --output <file>      Write configuration to file instead of stdout
   --help, -h           Show help message
   --version, -v        Show version number

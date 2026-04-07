@@ -40,6 +40,7 @@ export type {
   FiscalRule,
   FiscalAnchor,
   FiscalAttestation,
+  ISCADocument,
 
   // Billing types
   BillingInvoice,

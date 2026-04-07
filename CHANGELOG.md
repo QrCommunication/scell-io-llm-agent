@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-04-07
+
+### Changed
+
+- Bumped version to publish all SuperPDP onboarding changes to npm
+
+## [1.8.0] - 2026-04-07
+
+### Changed
+
+- Bumped version to publish SuperPDP OAuth2 onboarding tools to npm
+
+## [1.7.0] - 2026-04-07
+
+### Added
+
+- Added SuperPDP OAuth2 onboarding section to `llms.txt` documentation
+
+## [1.6.2] - 2026-04-07
+
+### Added
+
+- **3 New ISCA Document Tools**: `scell_download_measures_register`, `scell_download_technical_dossier`, `scell_download_self_attestation`
+
+### Changed
+
+- Renamed NF525 → ISCA throughout codebase and documentation (total: 33 tools)
+
+## [1.6.0] - 2026-04-07
+
+### Changed
+
+- Invoice numbers are now server-generated; clients no longer provide `invoice_number`
+- `siret` is now optional on Company — required only for French companies (`country=FR`)
+
+## [1.5.0] - 2026-02-12
+
+### Added
+
+- **International Invoicing Support**: optional `siret`, EU `vatNumber`, non-EU `legal_id` + `legal_id_scheme` fields on Company type
+
+## [1.4.0] - 2026-02-11
+
+### Fixed
+
+- Corrected tool count to 30 in generator comments
+- Removed duplicate `--sandbox` flag in CLI help output
+
+## [1.3.0] - 2026-02-11
+
+### Fixed
+
+- Corrected API key prefix documentation from `sk_*` to `tk_*`
+- Updated tool count to match actual available tools
+
 ## [1.2.0] - 2026-02-11
 
 ### Added
@@ -47,6 +102,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Programmatic API for config generation
 - Config validation
 
+[1.9.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.9.0
+[1.8.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.8.0
+[1.7.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.7.0
+[1.6.2]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.6.2
+[1.6.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.6.0
+[1.5.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.5.0
+[1.4.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.4.0
+[1.3.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.3.0
 [1.2.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.2.0
 [1.1.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v1.1.0
 [0.1.0]: https://github.com/QrCommunication/scell-io-llm-agent/releases/tag/v0.1.0
