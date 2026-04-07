@@ -186,6 +186,29 @@ Credit notes (avoirs) are linked to existing invoices. All tools require a tenan
 | `scell_delete_credit_note` | Delete a draft credit note (only drafts can be deleted) | `id` |
 | `scell_get_remaining_creditable` | Calculate how much can still be credited on an invoice (total minus already-issued credit notes) | `invoiceId` |
 
+### Onboarding (4) — publishable key (`pk_*`) required
+
+These tools expose the SuperPDP OAuth2 enrollment flow. A partner uses them to onboard end-users: SuperPDP handles company registration, KYB, and identity verification. On success, Scell provisions a tenant automatically.
+
+| Tool | Description | Required params |
+|------|-------------|-----------------|
+| `scell_onboarding_create_session` | Create an onboarding session for an end-user and return a `session_id` | `partner_ref` |
+| `scell_onboarding_get_session` | Retrieve the current status of an onboarding session | `session_id` |
+| `scell_onboarding_superpdp_authorize` | Get the SuperPDP OAuth2 authorize URL for the session. Open this URL in a popup — SuperPDP handles signup, KYB, and identity verification | `session_id` |
+| `scell_onboarding_superpdp_callback` | Complete enrollment after SuperPDP redirects back with an authorization code. Returns `{ success, tenant: { id, name, siret, environment } }` | `session_id`, `code`, `state` |
+
+Example prompts:
+
+```
+"Start an onboarding session for user ref 'partner-user-42'."
+
+"Get the SuperPDP authorize URL for session sess_abc123 so I can open the enrollment popup."
+
+"Complete the onboarding for session sess_abc123 using code 'auth_xyz' and state 'state_abc'."
+
+"Check the status of onboarding session sess_abc123."
+```
+
 ---
 
 ## Configuration
