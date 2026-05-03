@@ -46,18 +46,23 @@ export interface McpClientConfig {
 // ============================================================================
 
 /**
- * Company information for invoices
+ * Company information for invoices.
+ *
+ * For B2C buyers (private individuals), set `isIndividual: true` on the
+ * `buyer` of an InvoiceInput. SIRET / vatNumber / legal_id then become
+ * optional and Factur-X / UBL / CII generation omits BT-46/BT-47/BT-48
+ * (BR-CO-26 EN16931 compliant).
  */
 export interface Company {
-  /** Company name */
+  /** Company name (or full name for B2C buyer) */
   name: string;
-  /** SIRET number (14 digits) — required only for French companies (country=FR) */
+  /** SIRET number (14 digits) — required only for French B2B companies */
   siret?: string;
-  /** VAT number (e.g. FR12345678901 or BE0123456789) */
+  /** VAT number (e.g. FR12345678901 or BE0123456789) — B2B only */
   vatNumber?: string;
-  /** Legal identifier for non-EU companies (e.g. EIN, CRN) */
+  /** Legal identifier for non-EU companies (e.g. EIN, CRN) — B2B only */
   legal_id?: string;
-  /** Legal identifier scheme (e.g. "US:EIN", "GB:CRN") */
+  /** Legal identifier scheme (e.g. "US:EIN", "GB:CRN") — B2B only */
   legal_id_scheme?: string;
   /** Street address */
   address: string;
@@ -71,6 +76,11 @@ export interface Company {
   email?: string;
   /** Contact phone */
   phone?: string;
+  /**
+   * B2C flag : set to true on the `buyer` if it is a private individual.
+   * Default: false (B2B). Has no effect on the `seller`.
+   */
+  isIndividual?: boolean;
 }
 
 /**
@@ -117,6 +127,16 @@ export interface InvoiceInput {
   purchaseOrderRef?: string;
   /** Payment terms */
   paymentTerms?: string;
+  /**
+   * B2C flag : true if the buyer is a private individual.
+   *
+   * When true, buyer.siret / vatNumber / legal_id are NOT required.
+   * Equivalent to setting `buyer.isIndividual = true`.
+   *
+   * Factur-X / UBL / CII generation omits BT-46/BT-47/BT-48 (BR-CO-26).
+   * Default: false (B2B).
+   */
+  buyerIsIndividual?: boolean;
 }
 
 /**

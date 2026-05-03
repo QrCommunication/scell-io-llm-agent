@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-05-03
+
+### Added
+
+- **B2C support** : nouveau flag pour distinguer un acheteur particulier d'une entreprise.
+  - `Company.isIndividual?: boolean` (a positionner sur `buyer` uniquement).
+  - `InvoiceInput.buyerIsIndividual?: boolean` (alias top-level equivalent).
+- Documentation MCP : les schemas JSON des tools `scell_create_invoice` et `scell_create_credit_note` mentionnent explicitement que SIRET / vatNumber / legal_id sont optionnels en B2C.
+
+### Notes
+
+- Aucun breaking change. Default = false (B2B).
+- En B2C, le serveur Scell.io omet BT-46/BT-47/BT-48 du Factur-X / UBL / CII genere (BR-CO-26 EN16931). Les mentions B2B (Code de commerce L441-10) sont supprimees.
+
 ## [1.9.0] - 2026-04-07
 
 ### Changed

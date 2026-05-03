@@ -1823,6 +1823,35 @@ The `scell_create_invoice` tool supports invoices between parties of any nationa
 | France (`FR`) | `siret` — 14-digit SIRET number | `"siret": "12345678901234"` |
 | EU country (non-FR) | `vatNumber` — full EU VAT number | `"vatNumber": "BE0123456789"` |
 | Non-EU country | `legal_id` + `legal_id_scheme` | `"legal_id": "12-3456789"`, `"legal_id_scheme": "US:EIN"` |
+| **Private individual (B2C, any country)** | **none** — set `buyer.isIndividual = true` | `"buyer": { "isIndividual": true, ... }` |
+
+### B2C — Private Individual Buyer (since v1.10.0)
+
+When the buyer is a private individual (not a company), set
+`buyer.isIndividual = true` (or `buyerIsIndividual: true` at the top level
+of `InvoiceInput`). This triggers the following server-side behavior:
+
+- `buyer.siret`, `buyer.vatNumber`, `buyer.legal_id` become **optional**.
+- Factur-X / UBL / CII generation **omits** `BT-46` (BuyerLegalOrganisation),
+  `BT-47` (BuyerTaxIdentifier), `BT-48` (BuyerVATIdentifier).
+  Only the buyer Name (BT-44) and Address (BG-8) remain. Conformant
+  with EN16931 BR-CO-26.
+- Payment terms : the legally-required B2B mentions from French Code de
+  commerce L441-10 (late payment penalties = 3x legal interest rate +
+  fixed recovery indemnity 40 EUR) are automatically suppressed.
+- Credit notes derived from a B2C invoice inherit the flag automatically.
+
+Example prompt — French seller, French B2C buyer:
+```
+"Cree une facture de Coach Pro SAS, SIRET 12345678901234, 1 rue de la Paix 75001 Paris France,
+ a Marie Dupont (particulier), 12 rue de Rivoli 75001 Paris France, marie@example.com,
+ pour une seance de coaching individuel a 150 EUR HT, TVA 20%."
+```
+
+LLMs should infer `buyer.isIndividual = true` when the user says one of:
+particulier, individual, B2C, personne physique, private, consumer,
+Mr./Mme/M./Mlle followed by a personal name without a company suffix
+(SAS, SARL, SA, SCI, SPRL, GmbH, Ltd, Inc, etc.).
 
 ### Common `legal_id_scheme` values
 
