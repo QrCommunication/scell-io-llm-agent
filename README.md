@@ -2,7 +2,9 @@
 
 MCP (Model Context Protocol) client configuration generator for [Scell.io](https://scell.io) API.
 
-Scell.io provides electronic invoicing (Factur-X/UBL/CII) and simple electronic signatures (eIDAS EU-SES) via API.
+Scell.io provides electronic invoicing (Factur-X/UBL/CII, **B2B and B2C**) and simple electronic signatures (eIDAS EU-SES) via API.
+
+For B2C invoices, set `buyer.isIndividual = true` (or `buyerIsIndividual: true` at top-level) — SIRET / vatNumber / legal_id become optional and the generated Factur-X is BR-CO-26 EN16931 compliant.
 
 ## Installation
 
