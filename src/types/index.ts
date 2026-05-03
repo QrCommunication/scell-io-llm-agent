@@ -728,6 +728,93 @@ export interface OnboardingSessionInput {
 }
 
 // ============================================================================
+// Invoice Template Types (since 1.11.0)
+// ============================================================================
+
+export type InvoiceTemplateScope = 'system' | 'tenant' | 'sub_tenant';
+export type InvoiceTemplateLogoPosition = 'top-left' | 'top-center' | 'top-right';
+
+/**
+ * Invoice / Credit Note template — visual customization.
+ *
+ * Resolution cascade (server-side) :
+ *   1. invoice.invoice_template_id explicit
+ *   2. Default sub-tenant template
+ *   3. Default tenant template (if available_to_subtenants)
+ *   4. System default
+ */
+export interface InvoiceTemplate {
+  id: string;
+  scope: InvoiceTemplateScope;
+  tenant_id: string | null;
+  sub_tenant_id: string | null;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  is_available_to_subtenants: boolean;
+  logo_url: string | null;
+  logo_position: InvoiceTemplateLogoPosition;
+  primary_color: string | null;
+  accent_color: string | null;
+  text_color: string | null;
+  background_color: string | null;
+  header_text: string | null;
+  footer_text: string | null;
+  custom_mentions: string | null;
+  advanced_options: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface InvoiceTemplateInput {
+  scope: 'tenant' | 'sub_tenant';
+  sub_tenant_id?: string;
+  name: string;
+  description?: string;
+  is_default?: boolean;
+  is_available_to_subtenants?: boolean;
+  logo_url?: string;
+  logo_position?: InvoiceTemplateLogoPosition;
+  primary_color?: string;
+  accent_color?: string;
+  text_color?: string;
+  background_color?: string;
+  header_text?: string;
+  footer_text?: string;
+  custom_mentions?: string;
+  advanced_options?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Daily Closure Types (since 1.11.0)
+// ============================================================================
+
+/**
+ * Daily fiscal closure summary — emitted automatically every day at 00:05 UTC.
+ *
+ * Sent by email to all active tenants with attached CSV.
+ */
+export interface DailyClosure {
+  id: string;
+  tenant_id: string;
+  closing_date: string;
+  closing_type: 'daily' | 'monthly' | 'annual';
+  entries_count: number;
+  total_ht: number;
+  total_tax: number;
+  total_ttc: number;
+  currency: string;
+  closing_hash: string;
+  csv_hash: string | null;
+  csv_path: string | null;
+  csv_url?: string; // signed URL valid 5 days, returned by API
+  emailed_at: string | null;
+  created_at: string;
+}
+
+// ============================================================================
 // Webhook Types
 // ============================================================================
 

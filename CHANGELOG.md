@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-05-03
+
+### Added
+
+- **Invoice Templates** types : `InvoiceTemplate`, `InvoiceTemplateInput`, `InvoiceTemplateScope`, `InvoiceTemplateLogoPosition`. Documentation MCP des 6 nouveaux tools (`scell_list_invoice_templates`, `scell_get_invoice_template`, `scell_create_invoice_template`, `scell_update_invoice_template`, `scell_delete_invoice_template`, `scell_mark_invoice_template_default`).
+- **Daily Closure** type : `DailyClosure` avec `csv_url` (signed). Tools : `scell_get_daily_closure`, `scell_download_daily_closure_csv`.
+- **Avoirs** : documentation MCP precisee — `invoice_id` obligatoire, doit pointer sur une facture existante du meme tenant, creditable. Heritage strict des champs buyer (pas d'override).
+- llms.txt : section dediee Invoice Templates (cascade de resolution, exemples B2B/B2C, prompts Claude Desktop).
+
+### Notes
+
+- No breaking change. Default = system template (transparent pour les LLM).
+- Bump : 1.10.0 -> 1.11.0
+
 ## [1.10.0] - 2026-05-03
 
 ### Added

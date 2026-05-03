@@ -1886,6 +1886,97 @@ French seller, US buyer:
 
 ---
 
+## Invoice Templates — Personnalisation factures / avoirs (since v1.11.0)
+
+Tools MCP exposes par le serveur `api.scell.io` :
+
+- `scell_list_invoice_templates` — Lister les templates accessibles (system + tenant + sub_tenant courants).
+- `scell_get_invoice_template` — Detail d'un template par ID.
+- `scell_create_invoice_template` — Creer un template (scope `tenant` ou `sub_tenant`).
+- `scell_update_invoice_template` — Modifier un template existant.
+- `scell_delete_invoice_template` — Soft delete d'un template (system protege).
+- `scell_mark_invoice_template_default` — Marquer comme default pour son scope.
+
+### Cascade de resolution cote serveur
+
+```
+1. invoice.invoice_template_id explicit
+2. Default sub-tenant template (scope=sub_tenant, is_default=true)
+3. Default tenant template (scope=tenant, is_default=true)
+   ↳ Si invoice cote sub-tenant : is_available_to_subtenants=true requis
+4. Default system template (scope=system, is_default=true)
+```
+
+### Champs principaux
+
+```typescript
+interface InvoiceTemplate {
+  id: string;
+  scope: 'system' | 'tenant' | 'sub_tenant';
+  tenant_id: string | null;
+  sub_tenant_id: string | null;
+  name: string;
+  is_default: boolean;
+  is_available_to_subtenants: boolean;     // scope=tenant only
+  logo_url: string | null;
+  logo_position: 'top-left' | 'top-center' | 'top-right';
+  primary_color: string | null;            // hex #RRGGBB
+  accent_color: string | null;
+  text_color: string | null;
+  background_color: string | null;
+  header_text: string | null;              // max 500 chars
+  footer_text: string | null;
+  custom_mentions: string | null;          // injecte dans Factur-X payment terms
+  advanced_options: object | null;         // future-proof
+  metadata: object | null;
+}
+```
+
+### Exemple prompt LLM
+
+```
+"Cree un template de facture avec mon logo (https://cdn.acme.com/logo.svg),
+couleur principale bleu (#1E40AF), avec la mention 'TVA non applicable,
+art. 293 B du CGI', et marque-le comme template par defaut pour mon tenant."
+```
+
+LLM doit : `scell_create_invoice_template` avec scope=tenant, logo_url, primary_color=#1E40AF, custom_mentions, is_default=true.
+
+---
+
+## Daily Closure — Cloture quotidienne automatique
+
+Tools MCP :
+
+- `scell_list_daily_closures` — Lister les clotures quotidiennes (filtres date_from/date_to).
+- `scell_get_daily_closure` — Detail d'une cloture (avec hash ISCA + signed CSV URL).
+- `scell_download_daily_closure_csv` — Telecharger le CSV au format de marche.
+
+### Format CSV (autocertifie ISCA)
+
+Colonnes : `increment_id`, `type` (invoice|credit_note), `saving_date`, `document_date`, `total_excl_tax`.
+Ligne finale : `Total,,,,<sum_ht>`.
+
+### Email automatique
+
+Chaque jour a 00:05 UTC, le serveur envoie a chaque tenant actif un email :
+- Recap chiffre (nb docs, total HT/TVA, hash block, hash fichier).
+- Bouton "Telecharger au format CSV" (signed URL Laravel, valide 5 jours).
+
+### Avoirs — validation renforcee (since 1.11.0)
+
+LLM doit toujours fournir `invoice_id` (UUID) lors de la creation d'un avoir.
+Le serveur verifie :
+- La facture existe et appartient au meme tenant.
+- Le statut autorise les avoirs (validated, transmitted, accepted, paid, completed).
+- Le cumul des avoirs envoyes n'a pas atteint le total TTC.
+
+L'override des champs buyer/seller/buyer_is_individual est interdit
+(heritage strict — ISCA autocertification). Le `buyer_is_individual` de
+l'avoir herite automatiquement de la facture.
+
+---
+
 ## TypeScript Types — Complete Reference
 
 All types are exported from `@scell/mcp-client`. Import them as:
