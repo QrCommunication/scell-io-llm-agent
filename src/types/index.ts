@@ -171,6 +171,17 @@ export interface Invoice {
   createdAt: string;
   /** Last update timestamp */
   updatedAt: string;
+  /**
+   * Number of credit notes issued against this invoice (partial or total).
+   * Available since v1.12.0 (API 2026-05-04).
+   */
+  creditNotesCount?: number;
+  /**
+   * Total amount credited (sum of validated credit notes).
+   * Compare to totalIncludingTax to detect full credit.
+   * Available since v1.12.0.
+   */
+  creditedAmount?: number;
 }
 
 // ============================================================================
