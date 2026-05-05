@@ -1381,15 +1381,21 @@ ISCADocument {
 
 #### scell_download_self_attestation
 
-**Description:** Download the ISCA self-attestation certificate as a PDF. The self-attestation is a signed declaration that the software meets LF 2026 fiscal compliance requirements. Required for onboarding with French tax authorities.
+**Description:** Download the **NOMINATIVE** ISCA self-attestation certificate as a PDF (since SDK v1.13.0 / backend v0.6.0). The PDF includes the software identity (Scell.io + version), the editor identity (QR Communication SAS), the **beneficiary identity** (tenant or sub_tenant: legal_name, SIRET, VAT number, address, contact, KYB/KYC status), the 4-pillar ISCA compliance declaration (Inalterability, Security, Conservation, Archiving), and a SHA-256 integrity hash covering the entire document. The hash includes the beneficiary identity, so two attestations for two different beneficiaries will have two different hashes — cryptographic proof of non-transferability. Required for onboarding with French tax authorities.
 
 **Auth:** `tk_*` tenant key required
 
-**Endpoint:** `GET /api/fiscal/isca/self-attestation`
+**Endpoint:**
+- `GET /api/v1/tenant/fiscal/isca/self-attestation/download` (tenant authentifie)
+- `GET /api/v1/tenant/fiscal/isca/self-attestation/{subTenantId}/download` (sub_tenant)
 
-**Parameters:** none
+**Parameters:**
 
-**Returns:** `ISCADocument` (see `scell_download_measures_register`)
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `sub_tenant_id` | string (UUID) | No | If provided, generate the attestation for this specific sub_tenant. Returns 404 if the sub_tenant does not exist or is not owned by the authenticated tenant. If omitted, generate for the authenticated tenant (KYB data). |
+
+**Returns:** `ISCADocument` (binary PDF stream, see `scell_download_measures_register`). Filename suffix indicates beneficiary type: `auto-attestation-isca-tenant-{slug}-{date}.pdf` or `auto-attestation-isca-sub-tenant-{slug}-{date}.pdf`.
 
 **Example prompts:**
 - "Download the ISCA self-attestation PDF."

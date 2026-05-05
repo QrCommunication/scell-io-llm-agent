@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-05-06
+
+### Changed
+
+- **`scell_download_self_attestation`** : tool desormais NOMINATIF. Le PDF
+  inclut l'identite du beneficiaire (tenant ou sub_tenant : raison sociale,
+  SIRET, TVA, adresse, contact, statut KYB/KYC) et un nouveau parametre
+  optionnel `sub_tenant_id` permet de generer l'attestation pour un
+  sub_tenant specifique. Le hash SHA-256 du document couvre l'identite,
+  garantissant la non-transferabilite (preuve cryptographique).
+- Endpoint mis a jour : `GET /api/v1/tenant/fiscal/isca/self-attestation/download`
+  (tenant) ou `GET /api/v1/tenant/fiscal/isca/self-attestation/{subTenantId}/download`
+  (sub_tenant).
+- llms.txt : description detaillee du contenu PDF et de la preuve cryptographique
+  de non-transferabilite.
+
+### Notes
+
+- Backend requis : Scell.io v0.6.0+ (ledger increvable + attestation nominative).
+- Bump : 1.12.0 -> 1.13.0
+
 ## [1.11.0] - 2026-05-03
 
 ### Added
