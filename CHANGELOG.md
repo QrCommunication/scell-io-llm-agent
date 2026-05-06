@@ -80,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Renamed NF525 → ISCA throughout codebase and documentation (total: 33 tools)
+- Renamed legacy fiscal certification references to ISCA throughout codebase and documentation (total: 33 tools)
 
 ## [1.6.0] - 2026-04-07
 

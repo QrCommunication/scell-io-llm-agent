@@ -1399,7 +1399,7 @@ ISCADocument {
 
 **Example prompts:**
 - "Download the ISCA self-attestation PDF."
-- "Get the NF525/ISCA certification document."
+- "Get the ISCA certification document."
 
 ---
 
@@ -2869,7 +2869,7 @@ All webhook events delivered to a configured `webhookUrl` follow the `WebhookPay
 ### v1.6.2 — 2026-04-07
 
 - Added 3 new ISCA document download tools: `scell_download_measures_register`, `scell_download_technical_dossier`, `scell_download_self_attestation`
-- Renamed NF525 → ISCA throughout codebase and documentation (total at time: 33 tools → now 37)
+- Renamed legacy fiscal certification references to ISCA throughout codebase and documentation (total at time: 33 tools → now 37)
 
 ### v1.6.0 — 2026-04-07
 
