@@ -113,8 +113,22 @@ export interface InvoiceInput {
   dueDate: string;
   /** Seller/supplier information */
   seller: Company;
-  /** Buyer/customer information */
-  buyer: Company;
+  /** Buyer/customer information (omit when `buyerId` references the registry) */
+  buyer?: Company;
+  /**
+   * Reference to an existing Buyer in the registry (scoped tenant + sub_tenant).
+   * When provided, the API snapshots the registry's current state onto the
+   * invoice; the inline `buyer` field becomes optional. Mutating the
+   * registry later does NOT change this invoice (ISCA immutability).
+   */
+  buyerId?: string;
+  /**
+   * Optional shipping address (Factur-X BG-13 / BT-71..80). When omitted
+   * or identical to the buyer's billing address, the API does not emit
+   * BG-13 in the XML (EN16931 ship=bill presumption). The optional `name`
+   * (BT-74) identifies the destination site (e.g. "Entrepot Lyon").
+   */
+  buyerShippingAddress?: ShippingAddress;
   /** Invoice line items */
   lines: InvoiceLine[];
   /** Currency code (ISO 4217, defaults to EUR) */
@@ -137,6 +151,82 @@ export interface InvoiceInput {
    * Default: false (B2B).
    */
   buyerIsIndividual?: boolean;
+}
+
+/**
+ * Shipping address (Factur-X BG-13). Same fields as a billing address plus
+ * an optional `name` (BT-74) identifying the destination site.
+ */
+export interface ShippingAddress {
+  /** BT-74 ship-to name (e.g. "Entrepot Lyon"). Optional. */
+  name?: string;
+  /** Street address (BT-75) */
+  line1: string;
+  /** Address complement (BT-76) */
+  line2?: string;
+  /** Postal code (BT-78) */
+  postalCode: string;
+  /** City (BT-77) */
+  city: string;
+  /** Country subdivision / region (BT-79) */
+  region?: string;
+  /** Country code ISO 3166-1 alpha-2 (BT-80) */
+  country: string;
+}
+
+/**
+ * Buyer entry from the registry. Reusable across invoices via `buyerId`.
+ * Shape mirrors backend Buyer model. Mutations do NOT propagate to issued
+ * invoices (snapshot pattern, ISCA immutability).
+ */
+export interface Buyer {
+  id: string;
+  tenantId: string;
+  subTenantId: string | null;
+  name: string;
+  isIndividual: boolean;
+  siret: string | null;
+  vatNumber: string | null;
+  legalId: string | null;
+  legalIdScheme: string | null;
+  email: string | null;
+  phone: string | null;
+  country: string;
+  /** Required billing address. */
+  billingAddress: {
+    line1: string;
+    line2?: string;
+    postalCode: string;
+    city: string;
+    region?: string;
+    country: string;
+  };
+  /** Optional shipping address (BG-13). */
+  shippingAddress?: ShippingAddress | null;
+  hasDistinctShippingAddress: boolean;
+  metadata?: Record<string, unknown> | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Input for creating/updating a Buyer registry entry.
+ */
+export interface BuyerInput {
+  name: string;
+  country: string;
+  billingAddress: Buyer['billingAddress'];
+  isIndividual?: boolean;
+  siret?: string;
+  vatNumber?: string;
+  legalId?: string;
+  legalIdScheme?: string;
+  email?: string;
+  phone?: string;
+  shippingAddress?: ShippingAddress;
+  metadata?: Record<string, unknown>;
+  notes?: string;
 }
 
 /**
