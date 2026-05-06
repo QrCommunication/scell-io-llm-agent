@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-05-06
+
+### Added
+
+- **Support backend Scell.io v0.7.0** : nouveaux champs Factur-X complets
+  sur Company (`iban`, `bic`, `payment_terms_default`, `payment_due_days_default`,
+  `invoice_footer_default`, `invoice_notes_default`) + endpoint upload logo
+  pour les invoice templates (`POST /v1/invoice-templates/{id}/logo`).
+- Types `InvoiceTemplateInput` deja exposes (depuis 1.11.0). Le upload logo
+  est accessible via le SDK JS @scell/sdk@1.18.0+ ou SDK PHP @scell/sdk@1.17.0+
+  ou directement via API REST multipart.
+
+### Use case (LLM agents)
+
+Permettre aux agents IA de configurer le branding tenant (logo + couleurs +
+mentions custom) une fois pour toutes, sans avoir besoin de re-passer ces
+parametres a chaque generation de facture. Override par-facture reste
+possible via les champs payload SDK.
+
 ## [1.13.0] - 2026-05-06
 
 ### Changed
