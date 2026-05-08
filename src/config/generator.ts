@@ -162,7 +162,8 @@ export function generateConfigWithInstructions(
 // - scell_create_invoice: Create a new electronic invoice (invoice_number is NOT a parameter — the server generates it automatically. Supports international parties: SIRET required only for French companies (country=FR). For EU companies, provide vat_number. For non-EU, provide legal_id + legal_id_scheme.)
 // - scell_get_invoice: Retrieve an invoice by ID
 // - scell_list_invoices: List all invoices
-// - scell_download_invoice: Download invoice PDF/XML
+// - scell_download_invoice: Download invoice PDF/XML (legacy, company-scoped — requires API key bound to a specific company)
+// - scell_download_tenant_invoice: Download tenant-scoped invoice PDF/XML — works with tenant API keys for sub-tenant invoices and tenant-direct invoices (replaces deprecated v1 /tenant/invoices/{id}/download). Format: facturx | pdf | xml (default: facturx). Optional sub_tenant_id query for sub-tenant scoped strict-ownership.
 //
 // --- Electronic Signatures ---
 // - scell_create_signature: Create a signature request
