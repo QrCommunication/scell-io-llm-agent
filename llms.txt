@@ -1,6 +1,170 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 1.9.1
+Version: 2.0.0
+
+## v2.0.0 (2026-05-08) — Breaking Changes
+
+Major release. Aligns the MCP types and tools with the Scell.io API v2
+onboarding model (SuperPDP-driven sub-tenant lifecycle). Backend
+requirement: Scell.io API v2.0+.
+
+### What changed
+
+- `SubTenant` no longer exposes `kycStatus`, `kycVerifiedAt`, `kycDelegated`.
+- New required `onboardingStatus: OnboardingStatus` field (6 values).
+- New SubTenant fields: `superpdpCompanyVerificationStatus`,
+  `superpdpUserIdentityVerificationStatus`, `lastPolledAt`, `resumeUrl`,
+  `contactFirstName`, `contactLastName`.
+- 5 new MCP tools (see `Tools (v2)` section below).
+
+### Migration: `kycStatus` → `onboardingStatus`
+
+| Legacy `kycStatus` | New `onboardingStatus`                                                                                     |
+|--------------------|------------------------------------------------------------------------------------------------------------|
+| `'pending'`        | `'pending_superpdp'` / `'superpdp_redirected'` / `'superpdp_authorized'` / `'superpdp_pending_review'`     |
+| `'verified'`       | `'active'`                                                                                                 |
+| `'rejected'`       | `'superpdp_failed'`                                                                                        |
+
+## Tools (v2)
+
+The following MCP tools are exposed to the agent. Authentication is
+either publishable-key (widget tools) or Bearer (admin tools).
+
+### `scell_lookup_sirene` (publishable-key)
+
+Look up a French company by SIRET via the Sirene registry.
+
+Input schema (Zod-equivalent):
+
+```typescript
+z.object({
+  siret: z.string().regex(/^\d{14}$/, '14 digits'),
+})
+```
+
+Output:
+
+```typescript
+{ data: CompanyData | null, sirene_lookup_succeeded: boolean }
+```
+
+### `scell_create_sub_tenant` (publishable-key)
+
+Create a SubTenant from widget-collected data.
+
+Input schema:
+
+```typescript
+z.object({
+  external_id: z.string().optional(),
+  company: companyDataSchema,
+  identity: z.object({
+    first_name: z.string().min(1),
+    last_name: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().optional(),
+    birth_date: z.string().optional(),
+    job_title: z.string().optional(),
+  }),
+  locale: z.enum(['fr', 'en']).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+```
+
+Output:
+
+```typescript
+{ data: SubTenant, recommended_action: RecommendedAction | null, resume_url: string | null }
+```
+
+### `scell_get_subtenant_status` (Bearer master tenant)
+
+Get the cached SuperPDP onboarding status for a sub-tenant.
+
+Input schema:
+
+```typescript
+z.object({ id: z.string().uuid() })
+```
+
+Output:
+
+```typescript
+{ data: SubTenant, recommended_action: RecommendedAction | null }
+```
+
+### `scell_refresh_subtenant_status` (Bearer, rate-limited 1/min)
+
+Force a fresh poll of SuperPDP. Returns 429 when rate-limited; the
+agent must fall back to `scell_get_subtenant_status` and retry later.
+
+Input schema:
+
+```typescript
+z.object({ id: z.string().uuid() })
+```
+
+Output: same as `scell_get_subtenant_status`.
+
+### `scell_resume_url` (Bearer)
+
+Regenerate a signed resume URL valid 7 days for a sub-tenant whose
+onboarding is not complete.
+
+Input schema:
+
+```typescript
+z.object({ id: z.string().uuid() })
+```
+
+Output:
+
+```typescript
+{ resume_url: string, expires_at: string /* ISO 8601 */ }
+```
+
+### Common Zod schemas
+
+```typescript
+const addressSchema = z.object({
+  line1: z.string(),
+  line2: z.string().optional().nullable(),
+  postal_code: z.string(),
+  city: z.string(),
+  country: z.string().length(2),
+});
+
+const companyDataSchema = z.object({
+  siret: z.string().regex(/^\d{14}$/),
+  siren: z.string().regex(/^\d{9}$/),
+  name: z.string(),
+  legal_form: z.string().optional().nullable(),
+  legal_form_code: z.string().optional().nullable(),
+  naf_code: z.string().optional().nullable(),
+  naf_label: z.string().optional().nullable(),
+  vat_number: z.string().optional().nullable(),
+  address: addressSchema,
+  is_active: z.boolean(),
+  created_at: z.string().optional().nullable(),
+});
+```
+
+## RecommendedAction shape
+
+```typescript
+interface RecommendedAction {
+  code: string;
+  severity: 'info' | 'warning' | 'critical' | 'success';
+  titleFr: string; titleEn: string;
+  messageFr: string; messageEn: string;
+  ctaLabelFr: string; ctaLabelEn: string;
+  ctaUrl: string | null;
+  dismissible: boolean;
+}
+```
+
+---
+
 Author: QrCommunication / Scell.io
 License: MIT
 Node.js: >= 18.0.0

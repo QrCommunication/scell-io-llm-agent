@@ -637,7 +637,61 @@ export interface StatsMonthly {
 // ============================================================================
 
 /**
- * Sub-tenant
+ * SubTenant onboarding lifecycle status (since v2.0.0).
+ *
+ * Replaces the legacy 3-state `kycStatus` field. Maps the SuperPDP
+ * onboarding pipeline:
+ *
+ * | Legacy `kycStatus` | New `OnboardingStatus`                                                                |
+ * |--------------------|---------------------------------------------------------------------------------------|
+ * | pending            | pending_superpdp / superpdp_redirected / superpdp_authorized / superpdp_pending_review |
+ * | verified           | active                                                                                |
+ * | rejected           | superpdp_failed                                                                       |
+ */
+export type OnboardingStatus =
+  | 'pending_superpdp'
+  | 'superpdp_redirected'
+  | 'superpdp_authorized'
+  | 'superpdp_pending_review'
+  | 'active'
+  | 'superpdp_failed';
+
+export type SuperPDPCompanyVerificationStatus =
+  | 'verified'
+  | 'needs_review'
+  | 'failed'
+  | null;
+
+export type SuperPDPUserIdentityVerificationStatus =
+  | 'verified'
+  | 'needs_review'
+  | 'not_verified'
+  | null;
+
+/**
+ * Recommended action returned alongside a SubTenant. Structured i18n
+ * (FR/EN) so the agent can present a localized banner without the
+ * caller having to translate machine codes.
+ */
+export interface RecommendedAction {
+  code: string;
+  severity: 'info' | 'warning' | 'critical' | 'success';
+  titleFr: string;
+  titleEn: string;
+  messageFr: string;
+  messageEn: string;
+  ctaLabelFr: string;
+  ctaLabelEn: string;
+  ctaUrl: string | null;
+  dismissible: boolean;
+}
+
+/**
+ * Sub-tenant (v2 shape).
+ *
+ * Breaking change vs v1.x: `kycStatus`, `kycVerifiedAt`, `kycDelegated`
+ * are gone. Replaced by `onboardingStatus` plus the explicit SuperPDP
+ * verification fields.
  */
 export interface SubTenant {
   id: string;
@@ -647,6 +701,8 @@ export interface SubTenant {
   siren?: string | null;
   email?: string | null;
   phone?: string | null;
+  contactFirstName?: string | null;
+  contactLastName?: string | null;
   address?: {
     line1: string;
     line2?: string;
@@ -655,12 +711,26 @@ export interface SubTenant {
     country?: string;
   } | null;
   metadata?: Record<string, unknown> | null;
+  /** Onboarding lifecycle status (since v2.0.0). */
+  onboardingStatus: OnboardingStatus;
+  superpdpCompanyVerificationStatus?: SuperPDPCompanyVerificationStatus;
+  superpdpUserIdentityVerificationStatus?: SuperPDPUserIdentityVerificationStatus;
+  /** Last poll of SuperPDP for status (ISO 8601 UTC). */
+  lastPolledAt?: string | null;
+  /** Signed resume URL valid 7 days while onboarding != active. */
+  resumeUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
 
 /**
- * Input for creating a sub-tenant
+ * Type alias for code paths that explicitly handle the v2 enriched
+ * payload returned by `getSubtenantStatus` / `refreshSubtenantStatus`.
+ */
+export type SubTenantSummary = SubTenant;
+
+/**
+ * Input for creating a sub-tenant (server-to-server).
  */
 export interface SubTenantInput {
   externalId?: string;
@@ -669,6 +739,8 @@ export interface SubTenantInput {
   siren?: string;
   email?: string;
   phone?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
   address?: {
     line1: string;
     line2?: string;
@@ -677,6 +749,73 @@ export interface SubTenantInput {
     country?: string;
   };
   metadata?: Record<string, unknown>;
+}
+
+/**
+ * Sirene lookup payload (publishable-key, since v2.0.0).
+ */
+export interface CompanyData {
+  siret: string;
+  siren: string;
+  name: string;
+  legalForm?: string | null;
+  legalFormCode?: string | null;
+  nafCode?: string | null;
+  nafLabel?: string | null;
+  vatNumber?: string | null;
+  address: {
+    line1: string;
+    line2?: string | null;
+    postalCode: string;
+    city: string;
+    country: string;
+  };
+  isActive: boolean;
+  createdAt?: string | null;
+}
+
+/** Identity form payload collected by the widget for the human driving the onboarding. */
+export interface IdentityFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  birthDate?: string;
+  jobTitle?: string;
+}
+
+/** Response from `lookupSirene` (publishable-key). */
+export interface SireneLookupResult {
+  data: CompanyData | null;
+  sireneLookupSucceeded: boolean;
+}
+
+/** Input for `createSubTenant` (publishable-key widget endpoint). */
+export interface CreateSubTenantWidgetInput {
+  externalId?: string;
+  company: CompanyData;
+  identity: IdentityFormData;
+  locale?: 'fr' | 'en';
+  metadata?: Record<string, unknown>;
+}
+
+/** Response from `createSubTenant` (publishable-key widget endpoint). */
+export interface CreateSubTenantWidgetResult {
+  data: SubTenant;
+  recommendedAction: RecommendedAction | null;
+  resumeUrl: string | null;
+}
+
+/** Response from `getSubtenantStatus` / `refreshSubtenantStatus`. */
+export interface SubTenantStatusResult {
+  data: SubTenant;
+  recommendedAction: RecommendedAction | null;
+}
+
+/** Response from `getResumeUrl`. */
+export interface SubTenantResumeUrlResult {
+  resumeUrl: string;
+  expiresAt: string;
 }
 
 /**

@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-05-08
+
+Major release. Aligns the MCP client types and documentation with the
+Scell.io API v2 onboarding model. The legacy 3-state `kycStatus` field
+is dropped from `SubTenant` and replaced by the richer `onboardingStatus`
+enum plus explicit SuperPDP verification fields. New MCP tools are
+documented for agents:
+
+- `scell_lookup_sirene` (publishable-key) — Sirene company lookup.
+- `scell_create_sub_tenant` (publishable-key) — create a sub-tenant
+  from widget data.
+- `scell_get_subtenant_status` (Bearer) — query cached SuperPDP status.
+- `scell_refresh_subtenant_status` (Bearer, rate-limited 1/min) — force
+  a fresh poll of SuperPDP.
+- `scell_resume_url` (Bearer) — regenerate a 7-day signed resume URL.
+
+### Breaking Changes
+
+- **`SubTenant` no longer exposes `kycStatus` / `kycVerifiedAt` /
+  `kycDelegated`.** The backend stopped returning these fields.
+- **`SubTenant` now mandates `onboardingStatus: OnboardingStatus`**
+  (6-value union). TypeScript will fail loudly on consumers that
+  assumed the legacy shape.
+
+### Added
+
+- **`OnboardingStatus`** type (6 values) replacing legacy `kycStatus`:
+  `pending_superpdp` | `superpdp_redirected` | `superpdp_authorized` |
+  `superpdp_pending_review` | `active` | `superpdp_failed`.
+- **`SubTenant`** new fields: `onboardingStatus`,
+  `superpdpCompanyVerificationStatus`,
+  `superpdpUserIdentityVerificationStatus`, `lastPolledAt`,
+  `resumeUrl`, `contactFirstName`, `contactLastName`.
+- **`RecommendedAction`** interface — structured i18n action object
+  (FR/EN, with `code`, `severity`, `ctaUrl`, `dismissible`).
+- **`SubTenantSummary`** type alias = `SubTenant` for explicit handling
+  of the v2 enriched payload.
+- **`CompanyData`**, **`IdentityFormData`**, **`SireneLookupResult`**,
+  **`CreateSubTenantWidgetInput`**, **`CreateSubTenantWidgetResult`**,
+  **`SubTenantStatusResult`**, **`SubTenantResumeUrlResult`**.
+- New MCP tool input/output schemas documented in `llms.txt`. Agents
+  using `@scell/mcp-client` types should pass `inputSchema` derived
+  from these TypeScript types (Zod schemas can be generated with e.g.
+  `ts-to-zod` when needed).
+
+### Migration Guide
+
+Replace `kycStatus` reads with `onboardingStatus`:
+
+| Legacy `kycStatus` | New `onboardingStatus`                                                                  |
+|--------------------|-----------------------------------------------------------------------------------------|
+| `'pending'`        | `'pending_superpdp'` / `'superpdp_redirected'` / `'superpdp_authorized'` / `'superpdp_pending_review'` |
+| `'verified'`       | `'active'`                                                                              |
+| `'rejected'`       | `'superpdp_failed'`                                                                     |
+
+```typescript
+// BEFORE (v1.x)
+if (subTenant.kycStatus === 'verified') { /* ... */ }
+
+// AFTER (v2.0)
+if (subTenant.onboardingStatus === 'active') { /* ... */ }
+```
+
+### Backend requirements
+
+Scell.io API v2.0+ (release 2026-05-08).
+
 ## [1.14.0] - 2026-05-06
 
 ### Added

@@ -54,6 +54,18 @@ export type {
   // Tenant types
   SubTenant,
   SubTenantInput,
+  SubTenantSummary,
+  SubTenantStatusResult,
+  SubTenantResumeUrlResult,
+  OnboardingStatus,
+  SuperPDPCompanyVerificationStatus,
+  SuperPDPUserIdentityVerificationStatus,
+  RecommendedAction,
+  CompanyData,
+  IdentityFormData,
+  SireneLookupResult,
+  CreateSubTenantWidgetInput,
+  CreateSubTenantWidgetResult,
   TenantProfile,
   TenantBalance,
 
