@@ -100,24 +100,12 @@ jobs:
           git add package.json package-lock.json
           git diff --staged --quiet || (git commit -m "chore: bump version to $RELEASE_VERSION" && git push)
 
-      - name: Create annotated tag via API
-        run: |
-          SHA=$(git rev-parse HEAD)
-          # Create annotated tag object
-          TAG_SHA=$(gh api repos/${{ github.repository }}/git/tags \
-            --method POST \
-            -f tag="v$RELEASE_VERSION" \
-            -f message="Release v$RELEASE_VERSION" \
-            -f object="$SHA" \
-            -f type="commit" \
-            --jq '.sha')
-          # Create tag reference pointing to the annotated tag object
-          gh api repos/${{ github.repository }}/git/refs \
-            --method POST \
-            -f ref="refs/tags/v$RELEASE_VERSION" \
-            -f sha="$TAG_SHA"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # NOTE : pas de creation manuelle du tag via gh api.
+      # softprops/action-gh-release@v2 detecte automatiquement si le tag
+      # existe deja (cas push manuel pre-workflow) et le reutilise, ou
+      # le cree pointant vers HEAD du checkout (cas workflow_dispatch
+      # autonome). Idempotent et compatible avec les deux modes.
+      # cf. https://github.com/softprops/action-gh-release#-customizing
 
       - name: Extract release notes from CHANGELOG
         id: changelog
@@ -128,13 +116,15 @@ jobs:
           fi
           echo "$NOTES" > release_notes.md
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release (idempotent on existing tag)
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ inputs.version }}
           name: v${{ inputs.version }}
           body_path: release_notes.md
           draft: false
           prerelease: ${{ inputs.prerelease }}
+          # make_latest: 'true' pour marquer cette release comme latest (defaut).
+          make_latest: 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
