@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+
+## [2.1.0] - 2026-05-08
+
+### Added
+
+- New MCP tool documented: `scell_download_tenant_invoice` — Download tenant-scoped invoice PDF/XML. Comble le gap v2 ou les API keys tenant ne pouvaient pas telecharger les factures (`scell_download_invoice` legacy etait company-scoped et retournait 403).
+- Format support: `'facturx'` (default), `'pdf'`, `'xml'`.
+- Optional `sub_tenant_id` for strict sub-tenant scope.
+
+### Backend endpoints documented
+
+- `GET /api/v1/tenant/invoices/{invoiceId}/download[?format=]`
+- `GET /api/v1/tenant/sub-tenants/{subTenantId}/invoices/{invoiceId}/download[?format=]`
+
+### Notes
+
+- `cli.ts` VERSION bumpe `2.0.0` → `2.1.0`.
+- Pas de breaking change. Bump minor.
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [2.0.0] - 2026-05-08
