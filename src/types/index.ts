@@ -569,6 +569,35 @@ export interface SignatureInput {
 }
 
 /**
+ * Query parameters for `scell_list_signatures` (`GET /api/v1/signatures`).
+ *
+ * Scope: results are restricted to the tenant of the authenticated API key
+ * (resolved via `company.tenant_id`). Sub-tenant scoping is optional and
+ * enforced server-side as an anti-IDOR check — passing a `sub_tenant_id`
+ * that does not belong to the current tenant returns 403.
+ *
+ * Available since Scell.io API v2.3.0 (signatures listing exposed to
+ * `sk_live_*` / `sk_test_*` keys, previously dashboard-only via Sanctum).
+ */
+export interface SignatureListQuery {
+  /** Filter by application status. */
+  status?: SignatureStatus;
+  /** Filter by environment (production / sandbox). */
+  environment?: Environment;
+  /** Restrict to signatures attached to a specific company (UUID). */
+  company_id?: string;
+  /**
+   * Restrict to a sub-tenant of the current tenant (UUID). Server enforces
+   * ownership: returns 403 if the sub-tenant does not belong to the caller.
+   */
+  sub_tenant_id?: string;
+  /** Page number (default: 1). */
+  page?: number;
+  /** Items per page (default: 20, max: 100). */
+  per_page?: number;
+}
+
+/**
  * Reponse normalisee d'une demande de signature.
  */
 export interface SignatureRequest {

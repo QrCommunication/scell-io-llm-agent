@@ -168,7 +168,7 @@ export function generateConfigWithInstructions(
 // --- Electronic Signatures ---
 // - scell_create_signature: Create a signature request
 // - scell_get_signature: Get signature request status
-// - scell_list_signatures: List all signature requests
+// - scell_list_signatures: List all signature requests (scoped to the tenant of the API key). Optional filters: status, environment, company_id, sub_tenant_id (anti-IDOR — must belong to the current tenant), page, per_page (max 100). Available under sk_live_*/sk_test_* keys since API v2.3.0.
 // - scell_download_signed: Download signed document
 // - scell_cancel_signature: Cancel a pending signature
 // - scell_send_reminder: Send reminder to pending signers

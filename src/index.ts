@@ -30,6 +30,7 @@ export type {
   Signer,
   SignatureInput,
   SignatureRequest,
+  SignatureListQuery,
 
   // Fiscal Compliance types
   FiscalComplianceData,

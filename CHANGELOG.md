@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.6.0] - 2026-05-10
+
+### Added
+
+- `scell_list_signatures` and `scell_get_signature` are now usable under secret API keys (`sk_live_*` / `sk_test_*`) — previously dashboard-only via Sanctum.
+- New type `SignatureListQuery` exported from `@scell/mcp-client` describing the optional query parameters for `scell_list_signatures`: `status`, `environment`, `company_id`, `sub_tenant_id`, `page`, `per_page` (max 100).
+- Tool documentation updated in `generateConfigWithInstructions()` to reflect the new scope (tenant of the API key via `company.tenant_id`) and the new filters.
+
+### Fixed (backend, documented here)
+
+- 500 error when calling `GET /api/v1/signatures` with `sk_*` keys (backend used `$request->user()->id` which was null under `api.key`). Listing is now scoped via the resolved tenant.
+
+### Notes
+
+- Anti-IDOR: passing a `sub_tenant_id` that does not belong to the caller's tenant returns 403.
+- No breaking change — minor bump.
+
+---
+
 ## [2.2.0] - 2026-05-10
 
 ### Added

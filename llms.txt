@@ -991,19 +991,22 @@ SignatureRequest {
 
 #### scell_list_signatures
 
-**Description:** List all signature requests with optional status filter and pagination.
+**Description:** List signature requests for the tenant of the authenticated API key (scoped via `company.tenant_id`). Supports filtering by status, environment, company, and an optional sub-tenant restriction (anti-IDOR).
 
-**Auth:** any key type
+**Auth:** any key type (including `sk_live_*` / `sk_test_*` since API v2.3.0)
 
-**Endpoint:** `GET /api/signatures`
+**Endpoint:** `GET /api/v1/signatures`
 
 **Optional parameters:**
 
 | Parameter | Type | Description |
 |---|---|---|
 | `status` | `string` | Filter: `draft`, `pending`, `in_progress`, `completed`, `expired`, `cancelled` |
+| `environment` | `string` | Filter: `production`, `sandbox` |
+| `company_id` | `string` | Restrict to a specific company (UUID) |
+| `sub_tenant_id` | `string` | Restrict to a sub-tenant of the current tenant (UUID). 403 if it does not belong to the caller |
 | `page` | `number` | Page number (default: 1) |
-| `perPage` | `number` | Items per page (default: 20, max: 100) |
+| `per_page` | `number` | Items per page (default: 20, max: 100) |
 
 **Returns:** `PaginatedResult<SignatureRequest>`
 

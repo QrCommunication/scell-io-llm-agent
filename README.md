@@ -125,7 +125,7 @@ Once configured, your AI assistant will have access to these tools:
 |------|-------------|
 | `scell_create_signature` | Create a new signature request |
 | `scell_get_signature` | Get signature request status and details |
-| `scell_list_signatures` | List all signature requests |
+| `scell_list_signatures` | List signature requests (tenant-scoped). Filters: `status`, `environment`, `company_id`, `sub_tenant_id`, `page`, `per_page` |
 | `scell_download_signed` | Download the signed document |
 | `scell_cancel_signature` | Cancel a pending signature request |
 | `scell_send_reminder` | Send a reminder to pending signers |
