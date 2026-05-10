@@ -348,79 +348,245 @@ export interface CreditNote {
   updatedAt: string;
 }
 
+/**
+ * Environnement applicatif (couleur de la cle API).
+ * Utilise dans les reponses normalisees pour distinguer prod / sandbox.
+ */
+export type Environment = 'production' | 'sandbox';
+
 // ============================================================================
-// Signature Types
+// Signature Types — eIDAS EU-SES (Simple Electronic Signature)
+// Aligne sur le contrat backend StoreSignatureRequest (Scell.io API v1).
+// Scell.io ne propose QUE EU-SES (pas AES/QES). Pour ces niveaux superieurs,
+// contactez l'equipe Scell.io.
 // ============================================================================
 
 /**
- * Signer information
+ * Methode d'authentification du signataire (envoi du code OTP).
+ */
+export type SignerAuthMethod = 'email' | 'sms' | 'both';
+
+/**
+ * Statut applicatif d'un signataire.
+ */
+export type SignerStatus = 'pending' | 'signed' | 'refused';
+
+/**
+ * Statut applicatif d'une demande de signature.
+ */
+export type SignatureStatus =
+  | 'pending'
+  | 'waiting_signers'
+  | 'partially_signed'
+  | 'completed'
+  | 'refused'
+  | 'expired'
+  | 'error';
+
+/**
+ * Mode de saisie de la signature.
+ */
+export type SignatureMode = 'typed' | 'drawn' | 'both';
+
+/**
+ * Unite des coordonnees d'une zone de signature.
+ *  - `'percent'` (defaut) : valeurs 0-100, relatives a la page.
+ *  - `'pixel'`            : valeurs absolues en pixels @72dpi.
+ */
+export type SignaturePositionUnit = 'percent' | 'pixel';
+
+/**
+ * Champs modifiables par le signataire sur ses propres donnees.
+ */
+export interface SignerEditableData {
+  /** Autoriser le signataire a modifier son nom complet. */
+  name?: boolean;
+  /** Autoriser le signataire a modifier son numero de mobile. */
+  mobile?: boolean;
+  /** Autoriser le signataire a modifier son email. */
+  email?: boolean;
+}
+
+/**
+ * Comportement non-UI de la page de signature.
+ */
+export interface SignatureOptions {
+  /** Mode de saisie. `'both'` laisse le signataire choisir. */
+  signature_mode?: SignatureMode;
+  /** Force le signataire a parcourir tout le document avant de signer. */
+  signer_must_read?: boolean;
+  /** Champs que le signataire peut modifier sur ses propres donnees. */
+  user_editable_data?: SignerEditableData;
+  /** Identifiant IANA (ex: `'Europe/Paris'`). */
+  timezone?: string;
+}
+
+/**
+ * Personnalisation visuelle de la page de signature (white-label).
+ * 21 champs alignes sur la spec OpenAPI.com EU-SES v1.0.17. Les couleurs
+ * sont en hexadecimal `#RRGGBB`. Si non fourni, le backend applique le
+ * branding par defaut Scell.io.
+ */
+export interface SignatureUIConfig {
+  // Sidebar
+  sidebar_logo?: string;
+  sidebar_background_color?: string;
+  sidebar_title_color?: string;
+  sidebar_text_color?: string;
+
+  // Header
+  header_background_color?: string;
+  header_title_color?: string;
+  header_subtitle_color?: string;
+
+  // Footer
+  footer_background_color?: string;
+
+  // Boutons standards
+  button_text_color?: string;
+  button_text_color_hover?: string;
+  button_background_color?: string;
+  button_background_color_hover?: string;
+
+  // Bouton "Signer" (override des boutons standards)
+  sign_button_text_color?: string;
+  sign_button_text_color_hover?: string;
+  sign_button_background_color?: string;
+  sign_button_background_color_hover?: string;
+
+  // Toggles d'affichage
+  hide_sidebar?: boolean;
+  hide_header?: boolean;
+  hide_download_validated?: boolean;
+  hide_download_signed?: boolean;
+
+  /**
+   * Domaines autorises a embarquer la page de signature en iframe (max 20).
+   * Le backend injecte automatiquement `https://sign.scell.io` en plus.
+   */
+  iframe_ancestors?: string[];
+}
+
+/**
+ * Position d'une zone de signature visuelle sur le document.
+ */
+export interface SignaturePosition {
+  /** Numero de page (1-indexe). */
+  page: number;
+  /** Coordonnee X. Unite definie par `unit`. */
+  x: number;
+  /** Coordonnee Y. Unite definie par `unit`. */
+  y: number;
+  /** Largeur de la zone (optionnel). */
+  width?: number;
+  /** Hauteur de la zone (optionnel). */
+  height?: number;
+  /** Unite des coordonnees. Defaut : `'percent'`. */
+  unit?: SignaturePositionUnit;
+  /**
+   * Largeur de la page en px @72dpi. Si absent : detection auto via
+   * parser PDF cote backend, fallback A4 (595).
+   */
+  page_width_px?: number;
+  /**
+   * Hauteur de la page en px @72dpi. Si absent : detection auto via
+   * parser PDF cote backend, fallback A4 (842).
+   */
+  page_height_px?: number;
+}
+
+/**
+ * Definition d'un signataire pour la creation.
+ */
+export interface SignerInput {
+  first_name: string;
+  last_name: string;
+  /** Requis si `phone` n'est pas fourni. */
+  email?: string;
+  /** Requis si `email` n'est pas fourni. Format E.164 (+33...). */
+  phone?: string;
+  /** Methode d'envoi de l'OTP. */
+  auth_method: SignerAuthMethod;
+  /** Ordre de signature pour le mode sequentiel (1, 2, 3...). */
+  order?: number;
+  /**
+   * Message custom envoye au signataire (max 500 chars).
+   * Supporte le placeholder `{OTP}` qui sera remplace par le code OTP.
+   */
+  message?: string;
+}
+
+/**
+ * Forme normalisee d'un signataire dans une reponse API.
  */
 export interface Signer {
-  /** Signer\'s full name */
-  name: string;
-  /** Signer\'s email address */
-  email: string;
-  /** Signer\'s phone number (for SMS OTP, optional) */
-  phone?: string;
-  /** Signing order (for sequential signing) */
-  order?: number;
-  /** Signer role/title */
-  role?: string;
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  auth_method: SignerAuthMethod;
+  status: SignerStatus;
+  signing_url: string | null;
+  signed_at: string | null;
+  refused_at: string | null;
 }
 
 /**
- * Input for creating a signature request
+ * Input pour la creation d'une demande de signature EU-SES.
+ *
+ * Tous les champs `ui_config` et `signature_options` sont optionnels.
+ * Si non fournis, le backend Scell.io applique son branding et ses defauts.
  */
 export interface SignatureInput {
-  /** Document to sign (base64 encoded) */
+  /** Reference externe (votre ID metier). Optionnel. */
+  external_id?: string;
+  /** Titre du document (apparait dans l'email + UI). */
+  title: string;
+  /** Description optionnelle. */
+  description?: string;
+  /** Document a signer, encode en base64. */
   document: string;
-  /** Document filename */
-  filename: string;
-  /** Document MIME type */
-  mimeType: string;
-  /** List of signers */
-  signers: Signer[];
-  /** Signature type */
-  signatureType?: 'simple' | 'advanced' | 'qualified';
-  /** Signature level (eIDAS) */
-  signatureLevel?: 'SES' | 'AES' | 'QES';
-  /** Expiration date (ISO 8601 format) */
-  expiresAt?: string;
-  /** Email subject for notification */
-  emailSubject?: string;
-  /** Email message for notification */
-  emailMessage?: string;
-  /** Webhook URL for status updates */
-  webhookUrl?: string;
-  /** Redirect URL after signing */
-  redirectUrl?: string;
+  /** Nom du fichier (ex: `'contrat.pdf'`). */
+  document_name: string;
+  /** Liste de 1 a 10 signataires. */
+  signers: SignerInput[];
+  /** Positions visuelles des zones de signature. */
+  signature_positions?: SignaturePosition[];
+  /** White-label UI (21 champs). Defaut: branding Scell.io. */
+  ui_config?: SignatureUIConfig;
+  /** Comportement non-UI (mode, lecture forcee, timezone, editabilite). */
+  signature_options?: SignatureOptions;
+  /** URL de redirection apres completion (apres signature reussie). */
+  redirect_complete_url?: string;
+  /** URL de redirection apres annulation par le signataire. */
+  redirect_cancel_url?: string;
+  /** Date d'expiration ISO 8601. Defaut: J+30. */
+  expires_at?: string;
+  /** Active l'archivage 10 ans (eIDAS). */
+  archive_enabled?: boolean;
 }
 
 /**
- * Signature request response
+ * Reponse normalisee d'une demande de signature.
  */
 export interface SignatureRequest {
-  /** Unique signature request ID */
   id: string;
-  /** Request status */
-  status: 'draft' | 'pending' | 'in_progress' | 'completed' | 'expired' | 'cancelled';
-  /** Document filename */
-  filename: string;
-  /** Signers with their status */
-  signers: Array<Signer & {
-    status: 'pending' | 'signed' | 'declined';
-    signedAt?: string;
-  }>;
-  /** Signing URL (for embedded signing) */
-  signingUrl?: string;
-  /** Download URL for signed document */
-  downloadUrl?: string;
-  /** Creation timestamp */
-  createdAt: string;
-  /** Last update timestamp */
-  updatedAt: string;
-  /** Expiration timestamp */
-  expiresAt?: string;
+  external_id: string | null;
+  title: string;
+  description: string | null;
+  document_name: string;
+  document_size: number;
+  signers: Signer[] | null;
+  status: SignatureStatus;
+  status_message: string | null;
+  environment: Environment;
+  archive_enabled: boolean;
+  amount_charged: number | null;
+  expires_at: string | null;
+  created_at: string;
+  completed_at: string | null;
 }
 
 // ============================================================================
