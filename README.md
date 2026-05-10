@@ -125,7 +125,11 @@ Once configured, your AI assistant will have access to these tools:
 |------|-------------|
 | `scell_create_signature` | Create a new signature request |
 | `scell_get_signature` | Get signature request status and details |
-| `scell_list_signatures` | List signature requests (tenant-scoped). Filters: `status`, `environment`, `company_id`, `sub_tenant_id`, `page`, `per_page` |
+| `scell_list_signatures` | List signature requests (legacy company-scoped `GET /api/v1/signatures`). Filters: `status`, `environment`, `company_id`, `sub_tenant_id`, `page`, `per_page`. Master tenant keys without a bound company should prefer `scell_tenant_list_signatures` instead. |
+| `scell_tenant_list_signatures` | **v2.7.0** List signatures for the whole tenant via URL-nested `GET /api/v1/tenant/signatures`. Auth: `sk_*`. Filters: `status`, `environment`, `page`, `per_page`. |
+| `scell_tenant_get_signature` | **v2.7.0** Get a single tenant-scoped signature via `GET /api/v1/tenant/signatures/{id}`. Auth: `sk_*`. |
+| `scell_subtenant_list_signatures` | **v2.7.0** List signatures of one sub-tenant via `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures`. Auth: `sk_*`. Anti-IDOR. |
+| `scell_subtenant_get_signature` | **v2.7.0** Get a single sub-tenant signature via `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures/{id}`. Auth: `sk_*`. |
 | `scell_download_signed` | Download the signed document |
 | `scell_cancel_signature` | Cancel a pending signature request |
 | `scell_send_reminder` | Send a reminder to pending signers |

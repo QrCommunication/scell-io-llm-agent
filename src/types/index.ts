@@ -598,6 +598,37 @@ export interface SignatureListQuery {
 }
 
 /**
+ * Query parameters for the URL-nested tenant signature endpoints introduced
+ * in Scell.io API v2.7.0:
+ *
+ * - `GET /api/v1/tenant/signatures`
+ * - `GET /api/v1/tenant/signatures/{id}`
+ * - `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures`
+ * - `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures/{id}`
+ *
+ * These endpoints are scoped to the tenant resolved from the
+ * `X-API-Key: sk_live_*` / `sk_test_*` header (no `company_id`/`sub_tenant_id`
+ * filter — the sub-tenant scope, when applicable, comes from the URL path).
+ *
+ * Use this in place of `SignatureListQuery` for tools targeting the
+ * tenant-level routes (`scell_tenant_list_signatures`,
+ * `scell_subtenant_list_signatures`). The legacy `SignatureListQuery` remains
+ * for the company-scoped `GET /api/v1/signatures` endpoint.
+ *
+ * Available since `@scell/mcp-client` v2.7.0.
+ */
+export interface TenantSignatureListQuery {
+  /** Filter by application status. */
+  status?: SignatureStatus;
+  /** Filter by environment (production / sandbox). */
+  environment?: Environment;
+  /** Page number (default: 1). */
+  page?: number;
+  /** Items per page (default: 20, max: 100). */
+  per_page?: number;
+}
+
+/**
  * Reponse normalisee d'une demande de signature.
  */
 export interface SignatureRequest {

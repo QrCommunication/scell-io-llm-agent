@@ -1,6 +1,53 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.2.0
+Version: 2.7.0
+
+## v2.7.0 (2026-05-10) — Tenant URL-Nested Signature Endpoints
+
+Minor additive release. Adds 4 new MCP tools that target the URL-nested
+tenant signature endpoints introduced in Scell.io API v2.7.0. These are
+meant for **master tenant API keys** (`sk_live_*` / `sk_test_*` not bound
+to a specific company), which previously got `403 COMPANY_REQUIRED` on
+the legacy `GET /api/v1/signatures` route.
+
+### New tools
+
+| Tool | Endpoint | Scope |
+|---|---|---|
+| `scell_tenant_list_signatures` | `GET /api/v1/tenant/signatures` | Whole tenant |
+| `scell_tenant_get_signature` | `GET /api/v1/tenant/signatures/{id}` | Whole tenant |
+| `scell_subtenant_list_signatures` | `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures` | One sub-tenant |
+| `scell_subtenant_get_signature` | `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures/{id}` | One sub-tenant |
+
+**Auth:** all 4 require `X-API-Key: sk_live_*` or `sk_test_*`.
+
+**Optional query params (list endpoints only):**
+`status`, `environment`, `page`, `per_page` (max 100). The sub-tenant
+restriction comes from the URL path, NOT a query parameter.
+
+**Anti-IDOR:** for the sub-tenant variants, the API returns `403` if
+`subTenantId` does not belong to the calling tenant.
+
+### New type
+
+- `TenantSignatureListQuery` exported from `@scell/mcp-client`. Mirrors the
+  legacy `SignatureListQuery` minus `company_id` / `sub_tenant_id` (those
+  are no longer query params on the URL-nested routes).
+
+### Migration guidance
+
+- If your API key is **company-bound** (`sk_*` tied to a specific company),
+  keep using `scell_list_signatures`.
+- If your API key is **master tenant-level** (no `company_id`), switch to
+  `scell_tenant_list_signatures` — `scell_list_signatures` would return
+  `403 COMPANY_REQUIRED`.
+- For sub-tenant scoped queries, `scell_subtenant_list_signatures` is now
+  the canonical path (anti-IDOR enforced server-side, consistent with the
+  invoices/credit-notes URL-nested convention).
+
+### Total tool count: 42 (was 38).
+
+---
 
 ## v2.2.0 (2026-05-10) — Billing Invoice Pay Tool (Stripe)
 
@@ -271,7 +318,7 @@ Total tools: 37
 
 ## What is this?
 
-`@scell/mcp-client` is a Model Context Protocol (MCP) configuration generator that connects AI assistants (Claude Desktop, Cursor, VS Code Copilot, and any other MCP-compatible client) to the Scell.io API. Once configured, the AI gains 37 tools covering electronic invoicing (Factur-X/UBL/CII), eIDAS electronic signatures, fiscal compliance mandated by French law LF 2026, credit note management, and partner onboarding via SuperPDP OAuth2.
+`@scell/mcp-client` is a Model Context Protocol (MCP) configuration generator that connects AI assistants (Claude Desktop, Cursor, VS Code Copilot, and any other MCP-compatible client) to the Scell.io API. Once configured, the AI gains 42 tools covering electronic invoicing (Factur-X/UBL/CII), eIDAS electronic signatures (including URL-nested tenant routes), fiscal compliance mandated by French law LF 2026, credit note management, and partner onboarding via SuperPDP OAuth2.
 
 The package itself does not run any server. It generates the JSON configuration that points the MCP client to the live MCP server hosted at `https://api.scell.io/api`. Tool definitions, request routing, and API calls all happen on that remote server.
 
@@ -295,7 +342,7 @@ Developer / LLM
 
 Key points:
 - `@scell/mcp-client` is a **config generator + TypeScript types library**. It does not implement the tools themselves.
-- The live MCP server on `api.scell.io` exposes all 37 tools and handles every API call.
+- The live MCP server on `api.scell.io` exposes all 42 tools and handles every API call.
 - The generated config uses `@modelcontextprotocol/server-http` as transport (spawned on-demand by the MCP client via `npx`).
 - Authentication is passed as an environment variable (`X-Scell-API-Key` / `SCELL_API_KEY`) injected into the spawned process.
 
@@ -513,7 +560,7 @@ With `--env staging`:
 
 ---
 
-## Tools Reference — All 38 Tools
+## Tools Reference — All 42 Tools
 
 ### Summary Table
 
@@ -528,7 +575,11 @@ With `--env staging`:
 | 6b | `scell_download_tenant_invoice` | Invoicing | `sk_*` |
 | 7 | `scell_create_signature` | Signatures | any |
 | 8 | `scell_get_signature` | Signatures | any |
-| 9 | `scell_list_signatures` | Signatures | any |
+| 9 | `scell_list_signatures` | Signatures | any (company-scoped) |
+| 9a | `scell_tenant_list_signatures` | Signatures | `sk_*` |
+| 9b | `scell_tenant_get_signature` | Signatures | `sk_*` |
+| 9c | `scell_subtenant_list_signatures` | Signatures | `sk_*` |
+| 9d | `scell_subtenant_get_signature` | Signatures | `sk_*` |
 | 10 | `scell_download_signed` | Signatures | any |
 | 11 | `scell_cancel_signature` | Signatures | any |
 | 12 | `scell_send_reminder` | Signatures | any |
@@ -868,7 +919,7 @@ Invoice {
 
 ---
 
-### Electronic Signatures (6)
+### Electronic Signatures (10)
 
 ---
 
@@ -1014,6 +1065,105 @@ SignatureRequest {
 - "List all pending signature requests."
 - "Show me completed signature requests from the last 30 days."
 - "How many signature requests are currently in progress?"
+
+---
+
+#### scell_tenant_list_signatures
+
+**Description:** List signature requests for the entire tenant via the URL-nested route. Use this when the API key is a master tenant key not bound to a specific company (otherwise the legacy `scell_list_signatures` returns `403 COMPANY_REQUIRED`).
+
+**Auth:** `sk_live_*` / `sk_test_*` (Available since Scell.io API v2.7.0)
+
+**Endpoint:** `GET /api/v1/tenant/signatures`
+
+**Optional parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `status` | `string` | Filter: `draft`, `pending`, `in_progress`, `completed`, `expired`, `cancelled` |
+| `environment` | `string` | Filter: `production`, `sandbox` |
+| `page` | `number` | Page number (default: 1) |
+| `per_page` | `number` | Items per page (default: 20, max: 100) |
+
+**Returns:** `PaginatedResult<SignatureRequest>`
+
+**Example prompts:**
+- "List every signature request on my tenant."
+- "Show me all pending signatures across all companies in my tenant."
+
+---
+
+#### scell_tenant_get_signature
+
+**Description:** Retrieve a single signature request by ID, scoped to the calling tenant. Returns `404` if the signature does not belong to the tenant.
+
+**Auth:** `sk_live_*` / `sk_test_*` (Available since Scell.io API v2.7.0)
+
+**Endpoint:** `GET /api/v1/tenant/signatures/{id}`
+
+**Required parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | `string` | Signature request ID (UUID) |
+
+**Returns:** `SignatureRequest`
+
+**Example prompts:**
+- "Get the tenant-scoped signature with id sig_01HABC."
+
+---
+
+#### scell_subtenant_list_signatures
+
+**Description:** List signature requests for a specific sub-tenant via the URL-nested route. Anti-IDOR enforced server-side: returns `403` if `sub_tenant_id` does not belong to the calling tenant.
+
+**Auth:** `sk_live_*` / `sk_test_*` (Available since Scell.io API v2.7.0)
+
+**Endpoint:** `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures`
+
+**Required parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `sub_tenant_id` | `string` | UUID of the sub-tenant. Must belong to the caller's tenant. |
+
+**Optional parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `status` | `string` | Filter: `draft`, `pending`, `in_progress`, `completed`, `expired`, `cancelled` |
+| `environment` | `string` | Filter: `production`, `sandbox` |
+| `page` | `number` | Page number (default: 1) |
+| `per_page` | `number` | Items per page (default: 20, max: 100) |
+
+**Returns:** `PaginatedResult<SignatureRequest>`
+
+**Example prompts:**
+- "List signatures of sub-tenant sub_xyz."
+- "Show all completed signatures for sub-tenant abc-uuid in sandbox."
+
+---
+
+#### scell_subtenant_get_signature
+
+**Description:** Retrieve a single signature scoped to a specific sub-tenant. Returns `403` if the sub-tenant is not owned by the caller, `404` if the signature is outside that sub-tenant.
+
+**Auth:** `sk_live_*` / `sk_test_*` (Available since Scell.io API v2.7.0)
+
+**Endpoint:** `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures/{id}`
+
+**Required parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `sub_tenant_id` | `string` | UUID of the sub-tenant. |
+| `id` | `string` | Signature request UUID. |
+
+**Returns:** `SignatureRequest`
+
+**Example prompts:**
+- "Get signature sig_01H from sub-tenant sub_xyz."
 
 ---
 

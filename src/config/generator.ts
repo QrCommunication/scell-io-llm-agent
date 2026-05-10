@@ -152,7 +152,7 @@ export function generateConfigWithInstructions(
 //
 // Save this configuration to: ${configPath}
 //
-// Available tools (38):
+// Available tools (42):
 //
 // --- Health & Authentication ---
 // - scell_health_check: Check API health status
@@ -168,7 +168,11 @@ export function generateConfigWithInstructions(
 // --- Electronic Signatures ---
 // - scell_create_signature: Create a signature request
 // - scell_get_signature: Get signature request status
-// - scell_list_signatures: List all signature requests (scoped to the tenant of the API key). Optional filters: status, environment, company_id, sub_tenant_id (anti-IDOR — must belong to the current tenant), page, per_page (max 100). Available under sk_live_*/sk_test_* keys since API v2.3.0.
+// - scell_list_signatures: List all signature requests (legacy company-scoped endpoint GET /api/v1/signatures). Optional filters: status, environment, company_id, sub_tenant_id (anti-IDOR — must belong to the current tenant), page, per_page (max 100). Available under sk_live_*/sk_test_* keys since API v2.3.0. NOTE: master tenant API keys without a bound company should prefer scell_tenant_list_signatures (URL-nested) which works without COMPANY_REQUIRED.
+// - scell_tenant_list_signatures: List signature requests for the entire tenant via URL-nested route GET /api/v1/tenant/signatures. Auth: sk_live_*/sk_test_*. Optional filters: status, environment, page, per_page (max 100). Use this when the API key is master tenant-level (no bound company) — replaces scell_list_signatures which would return 403 COMPANY_REQUIRED. Available since API v2.7.0.
+// - scell_tenant_get_signature: Retrieve a single tenant-scoped signature by ID via GET /api/v1/tenant/signatures/{id}. Auth: sk_live_*/sk_test_*. Returns 404 if the signature does not belong to the caller tenant. Available since API v2.7.0.
+// - scell_subtenant_list_signatures: List signature requests of a specific sub-tenant via URL-nested route GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures. Auth: sk_live_*/sk_test_*. Anti-IDOR: 403 if subTenantId does not belong to the current tenant. Optional filters: status, environment, page, per_page (max 100). Available since API v2.7.0.
+// - scell_subtenant_get_signature: Retrieve a single sub-tenant scoped signature by ID via GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures/{id}. Auth: sk_live_*/sk_test_*. 403 if the sub-tenant is not owned by the caller, 404 if the signature is outside that sub-tenant. Available since API v2.7.0.
 // - scell_download_signed: Download signed document
 // - scell_cancel_signature: Cancel a pending signature
 // - scell_send_reminder: Send reminder to pending signers

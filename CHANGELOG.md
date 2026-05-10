@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.7.0] - 2026-05-10
+
+### Added
+
+- **4 new MCP tools** for the URL-nested tenant signature endpoints introduced in Scell.io API v2.7.0:
+  - `scell_tenant_list_signatures` — `GET /api/v1/tenant/signatures` (whole tenant scope)
+  - `scell_tenant_get_signature` — `GET /api/v1/tenant/signatures/{id}`
+  - `scell_subtenant_list_signatures` — `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures`
+  - `scell_subtenant_get_signature` — `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures/{id}`
+- New type `TenantSignatureListQuery` exported from `@scell/mcp-client`. Mirrors `SignatureListQuery` minus `company_id` / `sub_tenant_id` (those are now derived from the URL path on the new routes).
+- `generateConfigWithInstructions()` updated: total tool count is now **42** (was 38), with the 4 new tool names, descriptions and auth requirements.
+- `llms.txt` and `README.md` updated to document the new tools and migration guidance for master tenant API keys.
+
+### Why
+
+The legacy `GET /api/v1/signatures` endpoint requires the API key to be bound to a specific company (`COMPANY_REQUIRED`), so master tenant API keys (`sk_live_*` / `sk_test_*` not company-scoped) returned `403`. The new URL-nested routes resolve the tenant from the API key directly and follow the same convention as the existing tenant invoices and credit-notes endpoints.
+
+### Notes
+
+- Auth: all 4 new tools require `X-API-Key: sk_live_*` or `sk_test_*`.
+- Anti-IDOR: sub-tenant variants return `403` if `subTenantId` does not belong to the caller.
+- Optional query params on list endpoints: `status`, `environment`, `page`, `per_page` (max 100).
+- No breaking change — minor bump.
+
+---
+
 ## [2.6.0] - 2026-05-10
 
 ### Added
