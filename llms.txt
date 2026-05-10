@@ -1,6 +1,101 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.0.0
+Version: 2.2.0
+
+## v2.2.0 (2026-05-10) — Billing Invoice Pay Tool (Stripe)
+
+Minor additive release. Adds Stripe payment initiation for platform billing invoices.
+
+### New tool: `scell_pay_billing_invoice`
+
+**Description:** Initiate Stripe payment for a Scell.io billing invoice.
+Returns a `client_secret` for Stripe.js `confirmCardPayment()` on the front-end.
+
+**Auth:** `X-API-Key sk_live_*`
+
+**Input schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "invoice_id": {
+      "type": "string",
+      "description": "UUID of the BillingInvoice to pay"
+    }
+  },
+  "required": ["invoice_id"]
+}
+```
+
+**Response:** `PaymentIntent` — `clientSecret`, `paymentIntentId`, `amount` (cents), `currency`, `status`.
+
+**Errors:** 404 (invoice belongs to another tenant) · 422 (status not payable: draft, paid, cancelled).
+
+**New type:** `PaymentIntent` exported from `@scell/mcp-client`.
+
+---
+
+## v2.1.0 (2026-05-08) — Tenant Invoice Download Tool
+
+Minor additive release. Adds a new MCP tool to download Factur-X PDF /
+UBL XML / CII XML for invoices created via `scell_create_tenant_invoice`
+or `scell_create_tenant_invoice_for_sub_tenant`.
+
+### New tool: `scell_download_tenant_invoice`
+
+**Description:** Download a tenant-direct invoice as Factur-X PDF/A-3
+(default) or pure XML (UBL / CII). Use this for invoices created with
+the tenant API key (`sk_*`), NOT the company-scoped `scell_download_invoice`
+tool which targets a different invoice flow.
+
+**Auth:** `sk_live_*` or `sk_test_*` (server-side tenant API key).
+
+**Endpoints:**
+- `GET /api/v1/tenant/invoices/{invoiceId}/download?format={format}` (tenant-direct)
+- `GET /api/v1/tenant/sub-tenants/{subTenantId}/invoices/{invoiceId}/download?format={format}` (sub-tenant scoped)
+
+**Input schema:**
+
+```typescript
+z.object({
+  invoice_id: z.string().uuid(),
+  format: z.enum(['facturx', 'pdf', 'xml']).optional().default('facturx'),
+  sub_tenant_id: z.string().uuid().nullable().optional(),
+})
+```
+
+**Output:** Binary file content (Factur-X PDF/A-3 or pure UBL/CII XML
+depending on `format`). The MCP host receives the buffer in the
+`content` field of the tool response.
+
+**Example tool call:**
+
+```json
+{
+  "tool": "scell_download_tenant_invoice",
+  "input": {
+    "invoice_id": "019d-uuid",
+    "format": "facturx",
+    "sub_tenant_id": null
+  }
+}
+```
+
+Sub-tenant scoped variant (anti-IDOR — the API returns 404 if the
+invoice does not belong to the sub-tenant):
+
+```json
+{
+  "tool": "scell_download_tenant_invoice",
+  "input": {
+    "invoice_id": "019d-uuid",
+    "format": "xml",
+    "sub_tenant_id": "sub-tenant-uuid"
+  }
+}
+```
+
+---
 
 ## v2.0.0 (2026-05-08) — Breaking Changes
 
@@ -418,7 +513,7 @@ With `--env staging`:
 
 ---
 
-## Tools Reference — All 37 Tools
+## Tools Reference — All 38 Tools
 
 ### Summary Table
 
@@ -430,6 +525,7 @@ With `--env staging`:
 | 4 | `scell_get_invoice` | Invoicing | any |
 | 5 | `scell_list_invoices` | Invoicing | any |
 | 6 | `scell_download_invoice` | Invoicing | any |
+| 6b | `scell_download_tenant_invoice` | Invoicing | `sk_*` |
 | 7 | `scell_create_signature` | Signatures | any |
 | 8 | `scell_get_signature` | Signatures | any |
 | 9 | `scell_list_signatures` | Signatures | any |
