@@ -152,7 +152,7 @@ export function generateConfigWithInstructions(
 //
 // Save this configuration to: ${configPath}
 //
-// Available tools (37):
+// Available tools (38):
 //
 // --- Health & Authentication ---
 // - scell_health_check: Check API health status
@@ -199,6 +199,9 @@ export function generateConfigWithInstructions(
 // - scell_send_credit_note: Validate and send credit note
 // - scell_delete_credit_note: Delete draft credit note
 // - scell_get_remaining_creditable: Get remaining creditable amounts
+//
+// --- Billing Payments (tenant key required) ---
+// - scell_pay_billing_invoice: Initiate Stripe payment for a Scell.io billing invoice. Returns client_secret for Stripe.js confirmCardPayment(). Requires invoice to be in a payable status (not draft/paid/cancelled).
 //
 // --- Partner Onboarding (publishable key required) ---
 // - scell_onboarding_create_session: Create a new onboarding session

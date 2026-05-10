@@ -563,6 +563,27 @@ export interface ISCADocument {
 // ============================================================================
 
 /**
+ * PaymentIntent — returned by the `scell_pay_billing_invoice` tool.
+ *
+ * Pass `clientSecret` to `stripe.confirmCardPayment(clientSecret)` on the
+ * client side to finalize the payment.
+ *
+ * @since 2.2.0
+ */
+export interface PaymentIntent {
+  /** Stripe PaymentIntent client_secret — pass to Stripe.js confirmCardPayment() */
+  clientSecret: string;
+  /** Stripe PaymentIntent ID (pi_...) */
+  paymentIntentId: string;
+  /** Amount in smallest currency unit (e.g. cents for EUR) */
+  amount: number;
+  /** ISO 4217 currency code in lowercase (e.g. "eur") */
+  currency: string;
+  /** Stripe PaymentIntent status (e.g. "requires_payment_method", "succeeded") */
+  status: string;
+}
+
+/**
  * Billing invoice
  */
 export interface BillingInvoice {

@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.2.0] - 2026-05-10
+
+### Added
+
+- New MCP tool documented: `scell_pay_billing_invoice` — Initiate Stripe payment for a Scell.io billing invoice. Returns `client_secret` for Stripe.js `confirmCardPayment()`. Auth: `X-API-Key sk_live_*`. No request body. Raises 404 if invoice belongs to another tenant, 422 if status is not payable (draft, paid, cancelled).
+- Type `PaymentIntent` exported from `@scell/mcp-client` — fields: `clientSecret`, `paymentIntentId`, `amount` (cents), `currency` (ISO 4217 lowercase), `status`.
+- Total tool count updated to 38 in `generateConfigWithInstructions()`.
+
+### Backend endpoint documented
+
+- `POST /api/v1/tenant/billing/invoices/{invoiceId}/pay`
+- Response 200: `{ data: { client_secret, payment_intent_id, amount, currency, status } }`
+
+---
+
 ## [2.1.0] - 2026-05-08
 
 ### Added

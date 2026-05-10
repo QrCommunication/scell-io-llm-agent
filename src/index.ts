@@ -46,6 +46,7 @@ export type {
   BillingInvoice,
   BillingUsage,
   BillingTransaction,
+  PaymentIntent,
 
   // Statistics types
   StatsOverview,
