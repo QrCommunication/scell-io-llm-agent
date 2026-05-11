@@ -1094,6 +1094,110 @@ export interface SubTenantResumeUrlResult {
 }
 
 /**
+ * Response from `POST /v1/tenant/sub-tenants/{id}/superpdp-authorize`
+ * (since API v2.9.0).
+ *
+ * Returns the SuperPDP OAuth2 authorize URL that the master tenant
+ * should open (in a popup or new tab) so the sub-tenant can grant
+ * Scell.io the access token needed to drive its KYB / signature
+ * workflows. The `state` is opaque CSRF protection — Scell.io
+ * validates it on the OAuth callback automatically.
+ */
+export interface SubTenantSuperPDPAuthorizeResponse {
+  /** URL to open in the browser to start the SuperPDP OAuth2 flow. */
+  authorizeUrl: string;
+  /** Opaque CSRF token validated server-side on callback. */
+  state: string;
+}
+
+/**
+ * Options accepted by `deleteSubTenant` (since API v2.9.0).
+ */
+export interface SubTenantDeleteOptions {
+  /**
+   * When `true`, also deletes every Company owned by the sub-tenant.
+   * Required when the sub-tenant still has Companies attached
+   * (otherwise the API returns `422 SUB_TENANT_HAS_COMPANIES`).
+   *
+   * Has no effect if the sub-tenant has fiscal entries — those
+   * block deletion unconditionally (ISCA compliance).
+   */
+  cascade?: boolean;
+}
+
+/**
+ * Response from `DELETE /v1/tenant/sub-tenants/{id}` (success).
+ */
+export interface SubTenantDeleteResult {
+  /** Human-readable confirmation message. */
+  message: string;
+  /** Number of Companies deleted alongside the sub-tenant (0 if no cascade). */
+  companiesDeleted: number;
+}
+
+/**
+ * Machine-readable error codes returned by the sub-tenant lifecycle
+ * endpoints. The agent should branch on these to surface a clear
+ * remediation path to the human user.
+ */
+export type SubTenantErrorCode =
+  /**
+   * `DELETE /sub-tenants/{id}` returned 422: the sub-tenant still has
+   * Companies attached. Retry with `{ cascade: true }` to drop them
+   * atomically.
+   */
+  | 'SUB_TENANT_HAS_COMPANIES'
+  /**
+   * `DELETE /sub-tenants/{id}` returned 422: the sub-tenant has fiscal
+   * entries on the immutable ledger (invoices, credit notes,
+   * signatures emitted). ISCA forbids deletion — there is **no force
+   * flag**. The agent should propose to mark the sub-tenant inactive
+   * (`metadata.archived = true`) instead.
+   */
+  | 'SUB_TENANT_HAS_FISCAL_ENTRIES'
+  /**
+   * `POST /sub-tenants/{id}/superpdp-status/refresh` returned 422:
+   * there is no SuperPDP access token on file for this sub-tenant
+   * (the user never completed the OAuth2 flow, or the token was
+   * revoked / expired). The response payload includes
+   * `authorize_url` — the agent should surface it to the user so they
+   * can re-authorize via `scell_start_subtenant_superpdp_authorize`.
+   */
+  | 'MISSING_ACCESS_TOKEN';
+
+/**
+ * 422 error payload for `DELETE /sub-tenants/{id}` with
+ * `SUB_TENANT_HAS_COMPANIES`.
+ */
+export interface SubTenantHasCompaniesError {
+  code: 'SUB_TENANT_HAS_COMPANIES';
+  message: string;
+  /** Number of Companies still attached to the sub-tenant. */
+  companiesCount: number;
+}
+
+/**
+ * 422 error payload for `DELETE /sub-tenants/{id}` with
+ * `SUB_TENANT_HAS_FISCAL_ENTRIES`. No remediation flag exists; the
+ * sub-tenant must remain in the ledger (ISCA compliance).
+ */
+export interface SubTenantHasFiscalEntriesError {
+  code: 'SUB_TENANT_HAS_FISCAL_ENTRIES';
+  message: string;
+}
+
+/**
+ * 422 error payload for `POST /sub-tenants/{id}/superpdp-status/refresh`
+ * with `MISSING_ACCESS_TOKEN`.
+ */
+export interface SubTenantMissingAccessTokenError {
+  code: 'MISSING_ACCESS_TOKEN';
+  message: string;
+  /** OAuth2 authorize URL the user must open to re-grant access. */
+  authorizeUrl: string;
+}
+
+/**
  * Tenant profile
  */
 export interface TenantProfile {

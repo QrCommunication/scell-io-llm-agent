@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.9.0] - 2026-05-11
+
+### Added
+
+- **2 new MCP tools** for the sub-tenant lifecycle surface introduced in Scell.io API v2.9.0:
+  - `scell_start_subtenant_superpdp_authorize` — `POST /api/v1/tenant/sub-tenants/{id}/superpdp-authorize` → `{ authorize_url, state }`. Recovery path when the sub-tenant's SuperPDP access token is missing or revoked. Auth: `sk_*` / Bearer.
+  - `scell_delete_sub_tenant` — `DELETE /api/v1/tenant/sub-tenants/{id}?cascade={bool}`. Optional `cascade: boolean` to atomically drop attached Companies. Auth: `sk_*` / Bearer.
+- New TypeScript types exported from `@scell/mcp-client`:
+  - `SubTenantSuperPDPAuthorizeResponse` (`{ authorizeUrl, state }`)
+  - `SubTenantDeleteOptions` (`{ cascade?: boolean }`)
+  - `SubTenantDeleteResult` (`{ message, companiesDeleted }`)
+  - `SubTenantErrorCode` union (`'SUB_TENANT_HAS_COMPANIES' | 'SUB_TENANT_HAS_FISCAL_ENTRIES' | 'MISSING_ACCESS_TOKEN'`)
+  - `SubTenantHasCompaniesError`, `SubTenantHasFiscalEntriesError`, `SubTenantMissingAccessTokenError` — structured 422 payloads
+- Total tool count is now **44** (was 42).
+- `generateConfigWithInstructions()` documents the two new tools plus the explicit `MISSING_ACCESS_TOKEN` recovery path on `scell_refresh_subtenant_status`.
+- `llms.txt` adds detailed tool docs (input schemas, error payloads, recommended LLM decision protocols for cascade-deletion and missing-token recovery).
+- `README.md` adds a new "Sub-Tenant Lifecycle" section.
+
+### Changed
+
+- `scell_refresh_subtenant_status` documentation now mentions the new `422 MISSING_ACCESS_TOKEN` case that includes an `authorize_url` in the response. The LLM should branch on this code to surface the URL to the user or call `scell_start_subtenant_superpdp_authorize` to mint a fresh URL.
+
+### LLM decision protocols (added to `llms.txt`)
+
+- **Sub-tenant deletion**: branch on `SUB_TENANT_HAS_COMPANIES` (retry with `cascade=true` after user confirmation) vs `SUB_TENANT_HAS_FISCAL_ENTRIES` (refuse — ISCA, no force flag; propose `metadata.archived = true` instead).
+- **Refresh status with missing token**: branch on `MISSING_ACCESS_TOKEN` → fetch a fresh URL via `scell_start_subtenant_superpdp_authorize` or surface the included one, then ask the user to re-authorize.
+
+### Notes
+
+- No breaking change at the MCP-tool surface.
+- The sub-tenant lifecycle tools (`scell_get_subtenant_status`, `scell_refresh_subtenant_status`, `scell_resume_url`, `scell_create_sub_tenant`) that already existed in `llms.txt` are unchanged on the input side.
+
+---
+
 ## [2.8.0] - 2026-05-11
 
 ### Changed

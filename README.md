@@ -185,6 +185,18 @@ These tools require a publishable key (`pk_*`) and handle partner tenant onboard
 | `scell_onboarding_superpdp_authorize` | Start the SuperPDP OAuth2 flow — returns `authorize_url` and `state` |
 | `scell_onboarding_superpdp_callback` | Complete the SuperPDP OAuth2 flow — returns `authorization_code` and tenant |
 
+### Sub-Tenant Lifecycle (master tenant `sk_*` or Bearer required)
+
+These tools manage existing sub-tenants of the calling tenant. They are scoped strictly to the caller (anti-IDOR — `403` if the `id` does not belong to the API key's tenant).
+
+| Tool | Description |
+|------|-------------|
+| `scell_get_subtenant_status` | Get the cached SuperPDP onboarding status for a sub-tenant |
+| `scell_refresh_subtenant_status` | Force a fresh poll of SuperPDP (rate-limited 1/min). **Returns `422 MISSING_ACCESS_TOKEN` + `authorize_url` if the sub-tenant never granted access (or the token expired). The LLM should present that URL to the user, or call `scell_start_subtenant_superpdp_authorize` to obtain a fresh one.** |
+| `scell_start_subtenant_superpdp_authorize` | **v2.9.0** Start a SuperPDP OAuth2 flow for an existing sub-tenant whose access token is missing. `POST /api/v1/tenant/sub-tenants/{id}/superpdp-authorize` → `{ authorize_url, state }`. |
+| `scell_resume_url` | Regenerate a 7-day signed resume URL for a sub-tenant whose onboarding is not yet `active` |
+| `scell_delete_sub_tenant` | **v2.9.0** Delete a sub-tenant via `DELETE /api/v1/tenant/sub-tenants/{id}`. Optional `cascade: boolean` to drop attached Companies atomically. Returns `{ message, companies_deleted }` on success. Possible 422 codes the LLM should surface clearly: `SUB_TENANT_HAS_COMPANIES` (retry with `cascade=true` after user confirmation) and `SUB_TENANT_HAS_FISCAL_ENTRIES` (refusal — ISCA compliance, no force flag; propose to mark inactive instead). |
+
 ## Example Prompts
 
 Once the MCP server is configured, you can use natural language prompts like:

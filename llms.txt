@@ -1,6 +1,89 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.8.0
+Version: 2.9.0
+
+## v2.9.0 (2026-05-11) — Sub-Tenant Lifecycle: cascade delete + SuperPDP re-authorize
+
+New MCP surface for managing the lifecycle of existing sub-tenants whose
+SuperPDP access token may be missing, or whose deletion has structural
+preconditions to negotiate with the human user.
+
+### New tools
+
+| Tool | Endpoint | Auth |
+|---|---|---|
+| `scell_start_subtenant_superpdp_authorize` | `POST /api/v1/tenant/sub-tenants/{id}/superpdp-authorize` | `sk_*` / Bearer |
+| `scell_delete_sub_tenant` | `DELETE /api/v1/tenant/sub-tenants/{id}?cascade={bool}` | `sk_*` / Bearer |
+
+Total tool count now **44** (was 42).
+
+### Updated tool
+
+`scell_refresh_subtenant_status` now surfaces a new 422 case explicitly:
+`MISSING_ACCESS_TOKEN`. When raised, the response payload includes an
+`authorize_url` that the LLM should present to the user (or fetch a fresh
+one via `scell_start_subtenant_superpdp_authorize`). This is the
+canonical recovery path when the sub-tenant never completed the SuperPDP
+consent flow, or when the token was revoked / expired.
+
+### New types
+
+- `SubTenantSuperPDPAuthorizeResponse` — `{ authorizeUrl, state }`
+- `SubTenantDeleteOptions` — `{ cascade?: boolean }`
+- `SubTenantDeleteResult` — `{ message, companiesDeleted }`
+- `SubTenantErrorCode` — union of `'SUB_TENANT_HAS_COMPANIES' |
+  'SUB_TENANT_HAS_FISCAL_ENTRIES' | 'MISSING_ACCESS_TOKEN'`
+- `SubTenantHasCompaniesError`, `SubTenantHasFiscalEntriesError`,
+  `SubTenantMissingAccessTokenError` — structured 422 payloads
+
+### LLM decision protocol — sub-tenant deletion
+
+```
+1. User asks to delete sub-tenant X.
+2. Call scell_delete_sub_tenant({ id: X }).
+3a. 200 → done. Surface companies_deleted = 0.
+3b. 422 SUB_TENANT_HAS_COMPANIES { companies_count: N }
+    → Ask user: "X owns N Companies. Cascade-delete them too?"
+    → On yes: retry with { id: X, cascade: true }.
+    → On no: stop.
+3c. 422 SUB_TENANT_HAS_FISCAL_ENTRIES
+    → Do NOT propose any force flag (none exists, ISCA compliance).
+    → Propose to mark inactive instead: update metadata.archived = true.
+```
+
+### LLM decision protocol — refresh status with missing token
+
+```
+1. Call scell_refresh_subtenant_status({ id: X }).
+2a. 200 → use the returned SubTenant data.
+2b. 429 → rate-limited, fall back to scell_get_subtenant_status.
+2c. 422 MISSING_ACCESS_TOKEN { authorize_url: U }
+    → EITHER present U directly to the user
+    → OR call scell_start_subtenant_superpdp_authorize({ id: X }) to obtain
+      a fresh URL with a fresh CSRF `state`, then present that.
+    → After user grants access, retry the refresh.
+```
+
+### Server-side behaviour
+
+- `superpdp-authorize` is idempotent: it always returns a valid URL with
+  a fresh `state`. Calling it does not invalidate any existing token.
+- `delete?cascade=true` is atomic: either the sub-tenant and ALL its
+  Companies are deleted in one transaction, or nothing is deleted.
+- `SUB_TENANT_HAS_FISCAL_ENTRIES` is final. The sub-tenant must remain
+  on the ledger for ISCA audit trail. The agent should never ask for
+  user confirmation to "force" — there is no force.
+
+### Migration
+
+- No code change needed for callers that don't manage sub-tenants.
+- Callers using `scell_refresh_subtenant_status` should add a branch for
+  the new 422 `MISSING_ACCESS_TOKEN` code (returning `authorize_url`).
+- Callers wishing to expose deletion to the user should branch on the
+  two new 422 codes (`SUB_TENANT_HAS_COMPANIES`,
+  `SUB_TENANT_HAS_FISCAL_ENTRIES`).
+
+---
 
 ## v2.8.0 (2026-05-11) — Drop legacy `api_keys.company_id`, add `sub_tenant_id` in payloads
 
@@ -278,13 +361,30 @@ Output:
 Force a fresh poll of SuperPDP. Returns 429 when rate-limited; the
 agent must fall back to `scell_get_subtenant_status` and retry later.
 
+**Since v2.9.0**, may also return `422 MISSING_ACCESS_TOKEN` if the
+sub-tenant never granted SuperPDP access (or the token was revoked /
+expired). The response then includes `authorize_url`. The LLM should
+either present that URL directly to the user, or call
+`scell_start_subtenant_superpdp_authorize` to obtain a fresh URL with
+a new CSRF `state`, before asking the user to re-grant access.
+
 Input schema:
 
 ```typescript
 z.object({ id: z.string().uuid() })
 ```
 
-Output: same as `scell_get_subtenant_status`.
+Output (200): same as `scell_get_subtenant_status`.
+
+Output (422 `MISSING_ACCESS_TOKEN`):
+
+```typescript
+{
+  code: 'MISSING_ACCESS_TOKEN',
+  message: string,
+  authorize_url: string,
+}
+```
 
 ### `scell_resume_url` (Bearer)
 
@@ -598,7 +698,7 @@ With `--env staging`:
 
 ---
 
-## Tools Reference — All 42 Tools
+## Tools Reference — All 44 Tools
 
 ### Summary Table
 
@@ -646,6 +746,8 @@ With `--env staging`:
 | 35 | `scell_onboarding_get_session` | Onboarding | `pk_*` |
 | 36 | `scell_onboarding_superpdp_authorize` | Onboarding | `pk_*` |
 | 37 | `scell_onboarding_superpdp_callback` | Onboarding | `pk_*` |
+| 38 | `scell_start_subtenant_superpdp_authorize` | Sub-Tenant Lifecycle | `sk_*` / Bearer |
+| 39 | `scell_delete_sub_tenant` | Sub-Tenant Lifecycle | `sk_*` / Bearer |
 
 ---
 
@@ -2267,6 +2369,147 @@ TenantProfile {
 **Example prompts:**
 - "Complete the onboarding for session sess_01HXYZ using authorization code 'auth_xyz' and state 'abc123'."
 - "The SuperPDP popup returned code='ABC' and state='XYZ' — complete the callback for session sess_abc."
+
+---
+
+### Sub-Tenant Lifecycle (2)
+
+---
+
+#### scell_start_subtenant_superpdp_authorize
+
+**Description:** Start a SuperPDP OAuth2 Authorization Code flow for an **existing** sub-tenant whose SuperPDP access token is missing, expired, or revoked. This is the canonical recovery path when `scell_refresh_subtenant_status` has returned `422 MISSING_ACCESS_TOKEN`. The tool calls `POST /api/v1/tenant/sub-tenants/{id}/superpdp-authorize` and returns the `authorize_url` that the LLM should present to the human user (open in a browser tab or popup). Once the user grants access in SuperPDP, Scell.io captures the token via its OAuth callback automatically; subsequent `scell_refresh_subtenant_status` calls will succeed.
+
+**Auth:** `sk_live_*` / `sk_test_*` (master tenant) — **OR** Sanctum Bearer (dashboard session).
+
+**Anti-IDOR:** `403` if the sub-tenant `{id}` does not belong to the calling tenant.
+
+**Endpoint:** `POST /api/v1/tenant/sub-tenants/{id}/superpdp-authorize`
+
+**Required parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | `string (uuid)` | Sub-tenant ID owned by the calling tenant |
+
+**Returns:** `SubTenantSuperPDPAuthorizeResponse`
+
+```typescript
+SubTenantSuperPDPAuthorizeResponse {
+  authorize_url: string;  // URL to open in the browser to start the OAuth flow
+  state: string;          // Opaque CSRF token validated server-side on callback
+}
+```
+
+**Example response:**
+
+```json
+{
+  "authorize_url": "https://api.superpdp.tech/oauth2/authorize?client_id=019df46f...&response_type=code&redirect_uri=https%3A%2F%2Fapi.scell.io%2Fapi%2Fv1%2Fwidget%2Foauth-callback&scope=invoicing+signature&state=csrf_abc123&code_challenge=...&code_challenge_method=S256",
+  "state": "csrf_abc123"
+}
+```
+
+**Example prompts:**
+
+- "I tried to refresh the status of sub-tenant `019d…` but got `MISSING_ACCESS_TOKEN`. Get me a fresh SuperPDP authorize URL so I can ask the customer to re-grant access."
+- "Generate a SuperPDP OAuth URL for sub-tenant `019d…` so the user can complete consent."
+
+**Behaviour notes:**
+
+- Idempotent: each call returns a brand new URL with a fresh `state`. Calling it does **not** invalidate any existing token.
+- The LLM should always present the URL to the user with a short explanation ("please open this link in your browser to grant Scell.io access to your SuperPDP company"). Never attempt to follow the URL programmatically.
+
+---
+
+#### scell_delete_sub_tenant
+
+**Description:** Delete a sub-tenant of the calling tenant via `DELETE /api/v1/tenant/sub-tenants/{id}`. By default the API refuses deletion if the sub-tenant still has Companies attached (returns `422 SUB_TENANT_HAS_COMPANIES`). Pass `cascade=true` to delete those Companies atomically in the same transaction. **There is no force flag for sub-tenants that have already emitted invoices, credit notes or signatures** — the ISCA fiscal ledger forbids it. In that case the API returns `422 SUB_TENANT_HAS_FISCAL_ENTRIES` and the LLM should propose to mark the sub-tenant inactive (e.g. `metadata.archived = true`) instead.
+
+**Auth:** `sk_live_*` / `sk_test_*` (master tenant) — **OR** Sanctum Bearer.
+
+**Anti-IDOR:** `403` if the sub-tenant `{id}` does not belong to the calling tenant.
+
+**Endpoint:** `DELETE /api/v1/tenant/sub-tenants/{id}?cascade={bool}`
+
+**Required parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | `string (uuid)` | Sub-tenant ID owned by the calling tenant |
+
+**Optional parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `cascade` | `boolean` | `false` | When `true`, also delete every Company attached to the sub-tenant atomically |
+
+**Returns (200):** `SubTenantDeleteResult`
+
+```typescript
+SubTenantDeleteResult {
+  message: string;
+  companies_deleted: number;  // 0 when cascade=false or no companies attached
+}
+```
+
+**Error responses:**
+
+| HTTP | code | Payload | Recommended LLM action |
+|---|---|---|---|
+| 422 | `SUB_TENANT_HAS_COMPANIES` | `{ code, message, companies_count }` | Ask user to confirm cascade deletion, then retry with `cascade=true`. |
+| 422 | `SUB_TENANT_HAS_FISCAL_ENTRIES` | `{ code, message }` | **Do not propose any force flag — there is none.** Propose to mark the sub-tenant inactive (`metadata.archived = true`) instead. Explain that the immutable ISCA ledger forbids deletion. |
+| 403 | n/a | Anti-IDOR | The sub-tenant does not belong to the calling tenant. |
+| 404 | n/a | Not found | Confirm the ID is correct. |
+
+**Example response (success, no cascade):**
+
+```json
+{
+  "message": "Sub-tenant deleted",
+  "companies_deleted": 0
+}
+```
+
+**Example response (success, cascade):**
+
+```json
+{
+  "message": "Sub-tenant and attached Companies deleted",
+  "companies_deleted": 3
+}
+```
+
+**Example response (422 SUB_TENANT_HAS_COMPANIES):**
+
+```json
+{
+  "code": "SUB_TENANT_HAS_COMPANIES",
+  "message": "Sub-tenant still owns 3 Companies. Retry with cascade=true to delete them atomically.",
+  "companies_count": 3
+}
+```
+
+**Example response (422 SUB_TENANT_HAS_FISCAL_ENTRIES):**
+
+```json
+{
+  "code": "SUB_TENANT_HAS_FISCAL_ENTRIES",
+  "message": "Sub-tenant has fiscal entries on the immutable ISCA ledger and cannot be deleted. Mark it inactive instead."
+}
+```
+
+**Example prompts:**
+
+- "Delete sub-tenant `019d…`."
+- "Delete sub-tenant `019d…` and all its companies."
+- "I tried to delete sub-tenant `019d…` but it has fiscal entries — what should I do?" → propose `metadata.archived = true` patch.
+
+**Behaviour notes:**
+
+- Idempotent on already-deleted sub-tenants (returns 404, safe to retry).
+- `cascade=true` is atomic: either the sub-tenant AND all its Companies are deleted, or nothing is deleted (no partial state).
+- `SUB_TENANT_HAS_FISCAL_ENTRIES` is final. The LLM **must not** ask the user "do you want to force delete?" — there is no force, and pretending otherwise misleads the user about ISCA constraints.
 
 ---
 
