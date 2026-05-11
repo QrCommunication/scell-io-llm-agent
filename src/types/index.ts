@@ -151,6 +151,19 @@ export interface InvoiceInput {
    * Default: false (B2B).
    */
   buyerIsIndividual?: boolean;
+  /**
+   * Optional sub-tenant scoping (UUID).
+   *
+   * Replaces the legacy `api_keys.company_id` binding (removed in the
+   * 2026-05-11 backend refonte). Pass `sub_tenant_id` in the payload to
+   * attribute the invoice to a sub-tenant of the calling tenant.
+   *
+   * Anti-IDOR: the API returns 403 if the sub-tenant does not belong to
+   * the tenant resolved from the `X-API-Key` header.
+   *
+   * Available since `@scell/mcp-client` v2.8.0.
+   */
+  sub_tenant_id?: string;
 }
 
 /**
@@ -566,15 +579,32 @@ export interface SignatureInput {
   expires_at?: string;
   /** Active l'archivage 10 ans (eIDAS). */
   archive_enabled?: boolean;
+  /**
+   * Optional sub-tenant scoping (UUID).
+   *
+   * Replaces the legacy `api_keys.company_id` binding (removed in the
+   * 2026-05-11 backend refonte). Pass `sub_tenant_id` in the payload to
+   * attribute the signature request to a sub-tenant of the calling tenant.
+   *
+   * Anti-IDOR: the API returns 403 if the sub-tenant does not belong to
+   * the tenant resolved from the `X-API-Key` header.
+   *
+   * Available since `@scell/mcp-client` v2.8.0.
+   */
+  sub_tenant_id?: string;
 }
 
 /**
  * Query parameters for `scell_list_signatures` (`GET /api/v1/signatures`).
  *
- * Scope: results are restricted to the tenant of the authenticated API key
- * (resolved via `company.tenant_id`). Sub-tenant scoping is optional and
- * enforced server-side as an anti-IDOR check — passing a `sub_tenant_id`
- * that does not belong to the current tenant returns 403.
+ * Scope: results are restricted to the tenant of the authenticated API key.
+ * Sub-tenant scoping is optional and enforced server-side as an anti-IDOR
+ * check — passing a `sub_tenant_id` that does not belong to the current
+ * tenant returns 403.
+ *
+ * NOTE: the legacy `company_id` filter was removed in the 2026-05-11
+ * backend refonte (the underlying `api_keys.company_id` column was dropped
+ * — the API key now resolves to a tenant, not to a single company).
  *
  * Available since Scell.io API v2.3.0 (signatures listing exposed to
  * `sk_live_*` / `sk_test_*` keys, previously dashboard-only via Sanctum).
@@ -584,8 +614,6 @@ export interface SignatureListQuery {
   status?: SignatureStatus;
   /** Filter by environment (production / sandbox). */
   environment?: Environment;
-  /** Restrict to signatures attached to a specific company (UUID). */
-  company_id?: string;
   /**
    * Restrict to a sub-tenant of the current tenant (UUID). Server enforces
    * ownership: returns 403 if the sub-tenant does not belong to the caller.
@@ -607,8 +635,8 @@ export interface SignatureListQuery {
  * - `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures/{id}`
  *
  * These endpoints are scoped to the tenant resolved from the
- * `X-API-Key: sk_live_*` / `sk_test_*` header (no `company_id`/`sub_tenant_id`
- * filter — the sub-tenant scope, when applicable, comes from the URL path).
+ * `X-API-Key: sk_live_*` / `sk_test_*` header (no `sub_tenant_id` filter
+ * — the sub-tenant scope, when applicable, comes from the URL path).
  *
  * Use this in place of `SignatureListQuery` for tools targeting the
  * tenant-level routes (`scell_tenant_list_signatures`,

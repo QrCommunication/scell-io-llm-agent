@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.8.0] - 2026-05-11
+
+### Changed
+
+- **Backend refonte** (2026-05-11): the `api_keys.company_id` column was dropped on the Scell.io API. An API key now resolves to a **tenant**, not to a single company. To attribute a created resource to a sub-tenant of the calling tenant, pass an optional `sub_tenant_id` (UUID) **in the POST payload**.
+- `InvoiceInput.sub_tenant_id?: string` — new optional field on `scell_create_invoice` payloads. Anti-IDOR enforced server-side (`403` if the sub-tenant does not belong to the caller's tenant).
+- `SignatureInput.sub_tenant_id?: string` — new optional field on `scell_create_signature` payloads. Same anti-IDOR contract.
+- Tool documentation in `generateConfigWithInstructions()` updated for `scell_create_invoice`, `scell_create_signature` and `scell_list_signatures` to reflect the new payload field and the dropped legacy column.
+- `llms.txt` and `README.md` updated accordingly.
+
+### Removed
+
+- `SignatureListQuery.company_id` — the underlying filter no longer exists server-side after the column drop. `sub_tenant_id` remains supported as an anti-IDOR query parameter on `scell_list_signatures`.
+
+### Migration
+
+- No code change required if you never used a company-bound API key or the `SignatureListQuery.company_id` filter.
+- If you relied on a company-bound API key to scope newly created resources, drop that assumption and pass `sub_tenant_id` explicitly in the create payload.
+
+### Notes
+
+- No tool added or removed — total tool count unchanged at **42**.
+- No breaking change at the MCP-tool surface for callers that omit `sub_tenant_id`.
+
+---
+
 ## [2.7.0] - 2026-05-10
 
 ### Added

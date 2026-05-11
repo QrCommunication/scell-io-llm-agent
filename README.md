@@ -114,7 +114,7 @@ Once configured, your AI assistant will have access to these tools:
 
 | Tool | Description |
 |------|-------------|
-| `scell_create_invoice` | Create a new electronic invoice (Factur-X, UBL, or CII format) |
+| `scell_create_invoice` | Create a new electronic invoice (Factur-X, UBL, or CII format). Optional `sub_tenant_id` in the payload scopes the invoice to a sub-tenant of the calling tenant (anti-IDOR enforced server-side). |
 | `scell_get_invoice` | Retrieve invoice details by ID |
 | `scell_list_invoices` | List all invoices with filtering and pagination |
 | `scell_download_invoice` | Download invoice as PDF or XML |
@@ -123,9 +123,9 @@ Once configured, your AI assistant will have access to these tools:
 
 | Tool | Description |
 |------|-------------|
-| `scell_create_signature` | Create a new signature request |
+| `scell_create_signature` | Create a new signature request. Optional `sub_tenant_id` in the payload scopes the request to a sub-tenant of the calling tenant (anti-IDOR enforced server-side). |
 | `scell_get_signature` | Get signature request status and details |
-| `scell_list_signatures` | List signature requests (legacy company-scoped `GET /api/v1/signatures`). Filters: `status`, `environment`, `company_id`, `sub_tenant_id`, `page`, `per_page`. Master tenant keys without a bound company should prefer `scell_tenant_list_signatures` instead. |
+| `scell_list_signatures` | List signature requests (`GET /api/v1/signatures`, tenant-scoped via the API key). Filters: `status`, `environment`, `sub_tenant_id`, `page`, `per_page`. The legacy `company_id` filter was removed in the 2026-05-11 backend refonte (`api_keys.company_id` dropped). |
 | `scell_tenant_list_signatures` | **v2.7.0** List signatures for the whole tenant via URL-nested `GET /api/v1/tenant/signatures`. Auth: `sk_*`. Filters: `status`, `environment`, `page`, `per_page`. |
 | `scell_tenant_get_signature` | **v2.7.0** Get a single tenant-scoped signature via `GET /api/v1/tenant/signatures/{id}`. Auth: `sk_*`. |
 | `scell_subtenant_list_signatures` | **v2.7.0** List signatures of one sub-tenant via `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures`. Auth: `sk_*`. Anti-IDOR. |

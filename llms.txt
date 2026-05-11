@@ -1,6 +1,44 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.7.0
+Version: 2.8.0
+
+## v2.8.0 (2026-05-11) — Drop legacy `api_keys.company_id`, add `sub_tenant_id` in payloads
+
+Backend refonte (2026-05-11) removed the `api_keys.company_id` column. The
+API key now resolves to a **tenant**, not to a single company. To attribute
+a created resource to a sub-tenant of the calling tenant, pass an optional
+`sub_tenant_id` (UUID) **in the POST payload**.
+
+### Type changes
+
+- `InvoiceInput.sub_tenant_id?: string` — new optional field on
+  `scell_create_invoice` payloads.
+- `SignatureInput.sub_tenant_id?: string` — new optional field on
+  `scell_create_signature` payloads.
+- `SignatureListQuery.company_id` — **removed**. The underlying filter no
+  longer exists server-side. `sub_tenant_id` remains supported as an
+  anti-IDOR query parameter.
+- Tool docs in `generateConfigWithInstructions()` updated for
+  `scell_create_invoice`, `scell_create_signature`, and
+  `scell_list_signatures`.
+
+### Server-side behaviour
+
+- The API returns `403` if the supplied `sub_tenant_id` does not belong to
+  the tenant resolved from the `X-API-Key` header.
+- Omitting `sub_tenant_id` attributes the resource to the tenant directly
+  (master-tenant flow) — same default as before the refonte.
+
+### Migration
+
+- No code change required if you never used the legacy `company_id` binding
+  or the `SignatureListQuery.company_id` filter.
+- If you relied on a company-bound API key to scope new resources, drop
+  that assumption and pass `sub_tenant_id` explicitly in the payload.
+
+### Total tool count: unchanged at 42.
+
+---
 
 ## v2.7.0 (2026-05-10) — Tenant URL-Nested Signature Endpoints
 
@@ -1042,7 +1080,7 @@ SignatureRequest {
 
 #### scell_list_signatures
 
-**Description:** List signature requests for the tenant of the authenticated API key (scoped via `company.tenant_id`). Supports filtering by status, environment, company, and an optional sub-tenant restriction (anti-IDOR).
+**Description:** List signature requests for the tenant of the authenticated API key. Supports filtering by status, environment, and an optional sub-tenant restriction (anti-IDOR). The legacy `company_id` filter was removed in the 2026-05-11 backend refonte.
 
 **Auth:** any key type (including `sk_live_*` / `sk_test_*` since API v2.3.0)
 
@@ -1054,7 +1092,6 @@ SignatureRequest {
 |---|---|---|
 | `status` | `string` | Filter: `draft`, `pending`, `in_progress`, `completed`, `expired`, `cancelled` |
 | `environment` | `string` | Filter: `production`, `sandbox` |
-| `company_id` | `string` | Restrict to a specific company (UUID) |
 | `sub_tenant_id` | `string` | Restrict to a sub-tenant of the current tenant (UUID). 403 if it does not belong to the caller |
 | `page` | `number` | Page number (default: 1) |
 | `per_page` | `number` | Items per page (default: 20, max: 100) |
