@@ -152,14 +152,14 @@ export function generateConfigWithInstructions(
 //
 // Save this configuration to: ${configPath}
 //
-// Available tools (44):
+// Available tools (55):
 //
 // --- Health & Authentication ---
 // - scell_health_check: Check API health status
 // - scell_validate_api_key: Validate your API key
 //
 // --- Electronic Invoicing ---
-// - scell_create_invoice: Create a new electronic invoice (invoice_number is NOT a parameter — the server generates it automatically. Supports international parties: SIRET required only for French companies (country=FR). For EU companies, provide vat_number. For non-EU, provide legal_id + legal_id_scheme. Optional sub_tenant_id (UUID) attributes the invoice to a sub-tenant of the calling tenant — anti-IDOR 403 if it does not belong to the API key's tenant. The legacy api_keys.company_id binding was removed in the 2026-05-11 refonte.)
+// - scell_create_invoice: Create a new electronic invoice (invoice_number is NOT a parameter — the server generates it automatically. Supports international parties: SIRET required only for French companies (country=FR). For EU companies, provide vat_number. For non-EU, provide legal_id + legal_id_scheme. Optional sub_tenant_id (UUID) attributes the invoice to a sub-tenant of the calling tenant — anti-IDOR 403 if it does not belong to the API key's tenant. The legacy api_keys.company_id binding was removed in the 2026-05-11 refonte. Optional invoice_type ('standard'|'deposit'|'balance') and parent_quote_id (UUID) when creating directly from a quote without going through the quote→convert flow.)
 // - scell_get_invoice: Retrieve an invoice by ID
 // - scell_list_invoices: List all invoices
 // - scell_download_invoice: Download invoice PDF/XML (legacy, company-scoped — requires API key bound to a specific company)
@@ -219,6 +219,19 @@ export function generateConfigWithInstructions(
 // - scell_start_subtenant_superpdp_authorize: **(since v2.9.0)** Start a SuperPDP OAuth2 flow for an existing sub-tenant whose access token is missing or expired. Calls POST /api/v1/tenant/sub-tenants/{id}/superpdp-authorize and returns { authorize_url, state }. The LLM should present authorize_url to the human user — once the user authorizes, Scell.io captures the token via its OAuth callback and subsequent scell_refresh_subtenant_status calls will succeed.
 // - scell_resume_url: Regenerate a 7-day signed resume URL for a sub-tenant whose onboarding is not yet active. Returns { resume_url, expires_at }.
 // - scell_delete_sub_tenant: **(since v2.9.0)** Delete a sub-tenant via DELETE /api/v1/tenant/sub-tenants/{id}. Accepts an optional cascade boolean query flag. Returns { message, companies_deleted } on success. **Possible 422 codes that the LLM MUST surface to the user with a clear remediation path:** (a) SUB_TENANT_HAS_COMPANIES with companies_count — the sub-tenant still owns Companies; the LLM should ask the user to confirm cascade deletion, then retry with cascade=true; (b) SUB_TENANT_HAS_FISCAL_ENTRIES — the sub-tenant has emitted invoices / credit notes / signatures on the immutable ISCA ledger, deletion is **refused with NO force flag** (compliance); the LLM should propose to mark the sub-tenant inactive via metadata (metadata.archived = true) instead of pushing for deletion.
+//
+// --- Quotes / Devis (since v2.11.0) ---
+// - scell_create_quote: Create a new quote (devis). Accepts same buyer/seller/lines structure as invoices, plus quote-specific fields: validity_date, signature_required (boolean), deposit_schedule (array of percent|amount + due_date + label). Optional sub_tenant_id (anti-IDOR 403). Server auto-generates quote_number. Returns Quote.
+// - scell_get_quote: Retrieve a quote by ID with all lines, deposit schedule, and signature evidence. Returns 404 if the quote does not belong to the caller tenant.
+// - scell_list_quotes: List quotes with optional filters: status (draft|sent|accepted|refused|cancelled|converted), sub_tenant_id (anti-IDOR), buyer_id, date range (issued_from / issued_to), page, per_page (max 100).
+// - scell_update_quote: Partial update of a draft or sent quote (lines, validity_date, notes, deposit_schedule, buyer, signature_required). Blocked with 422 if status is accepted, converted, or cancelled.
+// - scell_delete_quote: Soft delete a quote. Blocked with 422 if status is accepted, converted, or sent (use scell_cancel_quote instead for sent quotes).
+// - scell_send_quote: Send quote to buyer by email and generate a signed public URL (90-day TTL by default). Transitions quote status to 'sent'. Returns { public_url, sent_at }. Optional custom email message.
+// - scell_cancel_quote: Cancel a draft or sent quote with a mandatory reason string. Transitions status to 'cancelled'. Blocked if status is accepted or converted.
+// - scell_duplicate_quote: Clone an existing quote into a new DRAFT with a fresh server-generated quote_number. All lines, buyer snapshot, deposit schedule, and validity_date are copied. Returns the new Quote.
+// - scell_convert_quote_to_deposit: Convert an accepted quote to a deposit invoice (acompte). Requires exactly one of percent (0–100 exclusive) or amount. Optional label and due_date. Multiple calls allowed on the same quote (one invoice per call). Returns Invoice with invoice_type='deposit' and parent_quote_id set.
+// - scell_convert_quote_to_balance: Convert an accepted quote to the final balance invoice (solde). Balance amount is auto-computed as quote.totalIncludingTax − sum(existing deposit invoices). Optional due_date and label. Returns Invoice with invoice_type='balance' and parent_invoice_ids listing all deposits.
+// - scell_get_quote_audit_log: Get the full tamper-evident audit log for a quote. Each entry carries a SHA-256 chainHash linking to the previous entry (legal proof of all state transitions: created, sent, accepted, updated, cancelled, converted). Returns QuoteAuditEntry[].
 //
 // Documentation: https://docs.scell.io
 

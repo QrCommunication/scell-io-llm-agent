@@ -4,6 +4,105 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.11.0] - 2026-05-15
+
+### Added
+
+- **11 new MCP tools** for the Quotes (Devis) surface — full lifecycle
+  from creation to invoicing:
+  - `scell_create_quote` — Create a quote with buyer/seller/lines +
+    validity date, signature_required flag, and deposit_schedule array.
+    Returns `Quote`.
+  - `scell_get_quote` — Retrieve a quote by ID with all lines,
+    deposit schedule, and eIDAS signature evidence.
+  - `scell_list_quotes` — List quotes with filters on status,
+    sub_tenant_id (anti-IDOR), buyer_id, and date range.
+  - `scell_update_quote` — Partial update (blocked on
+    accepted/converted/cancelled quotes).
+  - `scell_delete_quote` — Soft delete (blocked on
+    accepted/converted/sent quotes — use `scell_cancel_quote` instead).
+  - `scell_send_quote` — Send to buyer by email + generate a signed
+    public URL (90-day TTL). Returns `{ public_url, sent_at }`.
+  - `scell_cancel_quote` — Cancel a draft or sent quote with a reason.
+  - `scell_duplicate_quote` — Clone into a new DRAFT with a fresh
+    server-generated `quoteNumber`. Returns the new `Quote`.
+  - `scell_convert_quote_to_deposit` — Convert an accepted quote to a
+    deposit invoice (acompte). Params: `percent` XOR `amount`, optional
+    `label` + `dueDate`. Returns `Invoice` with
+    `invoice_type='deposit'` and `parent_quote_id` set. Multiple calls
+    allowed.
+  - `scell_convert_quote_to_balance` — Convert an accepted quote to the
+    final balance invoice (solde). Balance is auto-computed as
+    `quote.totalIncludingTax − Σ(deposits)`. Returns `Invoice` with
+    `invoice_type='balance'` and `parent_invoice_ids` referencing all
+    deposits.
+  - `scell_get_quote_audit_log` — Full tamper-evident audit log with
+    SHA-256 `chainHash` chain (legal proof of all state transitions).
+    Returns `QuoteAuditEntry[]`.
+- **New TypeScript types** exported from `@scell/mcp-client`:
+  - `QuoteStatus` — union of all quote lifecycle states.
+  - `QuoteLine` — line item with pre-computed totals.
+  - `QuoteDepositScheduleItem` — percent/amount deposit plan entry.
+  - `QuoteSignature` — eIDAS EU-SES buyer signature evidence.
+  - `QuoteAuditEntry` — single tamper-evident audit log entry.
+  - `Quote` — full quote response object.
+  - `CreateQuoteInput` — creation payload.
+  - `UpdateQuoteInput` — partial update payload.
+  - `ConvertToDepositInput` — deposit conversion params.
+  - `ConvertToBalanceInput` — balance conversion params.
+- **Invoice extensions** (all optional, backward-compatible):
+  - `Invoice.invoiceType?: 'standard' | 'deposit' | 'balance'` — type
+    of invoice (deposit = acompte, balance = solde).
+  - `Invoice.parentQuoteId?: string | null` — UUID of the originating
+    quote.
+  - `Invoice.parentInvoiceIds?: string[] | null` — list of deposit
+    invoice IDs consolidated by a balance invoice.
+- `scell_create_invoice` description updated to mention optional
+  `invoice_type` and `parent_quote_id` for the direct creation flow
+  (without going through the quote→convert tools).
+- Total tool count is now **55** (was 44).
+
+### Compat
+
+- Fully backward compatible: all new Invoice fields are optional, no
+  existing tool or type was modified.
+
+## [2.10.0] - 2026-05-15
+
+### Fixed (mirror of backend fix from the same day)
+
+- The MCP tool `scell_list_fiscal_closings` was effectively broken in
+  production: the underlying `GET /tenant/fiscal/closings` endpoint
+  returned a generic `500 Server Error` whenever a daily closing had
+  been anchored to OpenTimestamps. Backend root cause: the raw
+  `ots_proof` BYTEA column (non-UTF8 magic bytes from the `.ots`
+  format) crashed `json_encode()` server-side. The API now exposes the
+  receipt encoded in base64; this MCP client surfaces the new field.
+
+### Added
+
+- `FiscalClosing` type fully aligned with the backend schema:
+  - `tenantId`, `subTenantId`, `firstSequenceNumber`,
+    `lastSequenceNumber`
+  - `closingHash`, `previousClosingHash`
+  - `totals` (typed via `FiscalClosingTotals`), `cumulativeTotals`
+  - `environment`, `csvPath`, `csvHash`
+  - `otsProofBase64`, `otsStatus`, `otsSubmittedAt`,
+    `otsBitcoinConfirmedAt`, `otsCalendars` (typed via
+    `FiscalClosingOtsCalendar`)
+  - `metadata`
+- New exported types: `FiscalClosingTotals` and
+  `FiscalClosingOtsCalendar`.
+
+### Changed
+
+- `VERSION` constant in `src/cli.ts` bumped from `'2.8.0'` (historical
+  drift vs. Git tag) to `'2.10.0'`.
+
+### Compat
+
+- Fully backward compatible: every new field is optional.
+
 ## [2.9.0] - 2026-05-11
 
 ### Added

@@ -285,6 +285,329 @@ export interface Invoice {
    * Available since v1.12.0.
    */
   creditedAmount?: number;
+  /**
+   * Invoice type: standard (default), deposit (acompte) or balance (solde).
+   * Deposit and balance invoices are created from an accepted quote via
+   * `scell_convert_quote_to_deposit` / `scell_convert_quote_to_balance`,
+   * or directly with `scell_create_invoice` by setting this field.
+   * Available since v2.11.0.
+   */
+  invoiceType?: 'standard' | 'deposit' | 'balance';
+  /**
+   * UUID of the parent quote when this invoice was generated from a quote
+   * (deposit or balance). Null for standalone invoices.
+   * Available since v2.11.0.
+   */
+  parentQuoteId?: string | null;
+  /**
+   * List of deposit invoice IDs that this balance invoice consolidates.
+   * Populated on `invoice_type === 'balance'` invoices only.
+   * Available since v2.11.0.
+   */
+  parentInvoiceIds?: string[] | null;
+}
+
+// ============================================================================
+// Quote Types (since 2.11.0)
+// ============================================================================
+
+/**
+ * Quote (devis) status lifecycle.
+ *
+ * ```
+ * DRAFT → SENT → ACCEPTED → (deposit + balance invoices)
+ *               ↘ REFUSED
+ * DRAFT | SENT → CANCELLED
+ * ACCEPTED     → CONVERTED  (when at least one invoice was generated)
+ * ```
+ */
+export type QuoteStatus =
+  | 'draft'
+  | 'sent'
+  | 'accepted'
+  | 'refused'
+  | 'cancelled'
+  | 'converted';
+
+/**
+ * A single line item of a quote. Mirrors InvoiceLine but belongs to
+ * a Quote document. Unit price and VAT rate are stored at creation
+ * time; mutations update these fields (blocked once quote is accepted).
+ */
+export interface QuoteLine {
+  /** Unique line ID */
+  id: string;
+  /** Line description */
+  description: string;
+  /** Quantity */
+  quantity: number;
+  /** Unit price (excluding tax) */
+  unitPrice: number;
+  /** VAT rate (percentage, e.g. 20 for 20%) */
+  vatRate: number;
+  /** Optional unit of measure */
+  unit?: string | null;
+  /** Optional product / service code */
+  productCode?: string | null;
+  /** Line total excluding tax */
+  totalExcludingTax: number;
+  /** Line VAT amount */
+  vatAmount: number;
+  /** Line total including tax */
+  totalIncludingTax: number;
+}
+
+/**
+ * Deposit schedule item attached to a quote.
+ * Defines the breakdown of expected partial payments before the balance.
+ */
+export interface QuoteDepositScheduleItem {
+  /**
+   * Deposit amount as a percentage of the quote total (0–100, exclusive).
+   * Exactly one of `percent` or `amount` must be set.
+   */
+  percent?: number;
+  /**
+   * Fixed deposit amount in the quote currency.
+   * Exactly one of `percent` or `amount` must be set.
+   */
+  amount?: number;
+  /** Due date for this deposit (ISO 8601) */
+  dueDate?: string | null;
+  /** Label shown on the deposit invoice */
+  label?: string | null;
+}
+
+/**
+ * Signature evidence attached to a quote after the buyer signs it.
+ * Provides legal traceability for accepted quotes.
+ */
+export interface QuoteSignature {
+  /** Signature timestamp (ISO 8601 UTC) */
+  signedAt: string;
+  /** IP address of the signing party */
+  ipAddress: string | null;
+  /** User-agent of the signing browser */
+  userAgent: string | null;
+  /** Full name provided by the signer */
+  signerName: string | null;
+  /** Email address of the signer */
+  signerEmail: string | null;
+  /** SVG or base64-encoded canvas representation of the drawn signature */
+  signatureData?: string | null;
+}
+
+/**
+ * A single audit log entry for a quote.
+ * Records every state transition, update, and access event.
+ * The SHA-256 `chainHash` chains entries to the previous one,
+ * providing tamper-evident history (legal proof for accepted quotes).
+ */
+export interface QuoteAuditEntry {
+  id: string;
+  /** Event code (e.g. "created", "sent", "accepted", "updated") */
+  event: string;
+  /** Actor type: system (server automation) or user */
+  actorType: 'system' | 'user';
+  /** Actor user ID (null for system events) */
+  actorId: string | null;
+  /** Actor display name or email */
+  actorLabel: string | null;
+  /** Changed fields snapshot (null for events with no field changes) */
+  changes: Record<string, unknown> | null;
+  /** SHA-256 hash of this entry chained to the previous entry */
+  chainHash: string;
+  /** Chain hash of the previous entry (null for first entry) */
+  previousChainHash: string | null;
+  /** IP address of the actor (null for system events) */
+  ipAddress: string | null;
+  /** Timestamp of the event (ISO 8601 UTC) */
+  createdAt: string;
+}
+
+/**
+ * Quote (devis) response object.
+ *
+ * A quote is a pre-invoice commercial offer. Once accepted, it can be
+ * converted to deposit invoices (`invoice_type=deposit`) and a final
+ * balance invoice (`invoice_type=balance`). The conversion preserves
+ * buyer / seller snapshots and line items for legal traceability.
+ *
+ * Anti-IDOR: the API scopes all quote operations to the tenant (and
+ * optional sub-tenant) resolved from the `X-API-Key` header.
+ */
+export interface Quote {
+  /** Unique quote UUID */
+  id: string;
+  /** Human-readable quote number (server-generated, e.g. "DEV-2026-0042") */
+  quoteNumber: string;
+  /** Quote status */
+  status: QuoteStatus;
+  /** Quote issue date (ISO 8601) */
+  issueDate: string;
+  /** Validity date after which the quote expires if not accepted (ISO 8601) */
+  validityDate: string | null;
+  /** Whether the buyer must provide an eIDAS EU-SES signature to accept */
+  signatureRequired: boolean;
+  /** Seller company snapshot */
+  seller: Company;
+  /** Buyer company snapshot (null if buyerId was used at creation) */
+  buyer: Company | null;
+  /** UUID of the buyer registry entry (if set at creation) */
+  buyerId: string | null;
+  /** Line items */
+  lines: QuoteLine[];
+  /** Optional shipping address (same schema as InvoiceInput) */
+  buyerShippingAddress?: ShippingAddress | null;
+  /** Currency (ISO 4217, e.g. "EUR") */
+  currency: string;
+  /** Notes / free-text comment */
+  notes: string | null;
+  /** Purchase order reference */
+  purchaseOrderRef: string | null;
+  /** Payment terms */
+  paymentTerms: string | null;
+  /** Deposit schedule (one entry per expected partial payment) */
+  depositSchedule: QuoteDepositScheduleItem[];
+  /** Sub-tenant UUID (null for master-tenant quotes) */
+  subTenantId: string | null;
+  /** Signature evidence when the buyer has accepted via EU-SES */
+  signature: QuoteSignature | null;
+  /** Public signed URL for the buyer to view / accept the quote (90-day TTL) */
+  publicUrl: string | null;
+  /** Total amount excluding tax */
+  totalExcludingTax: number;
+  /** Total VAT amount */
+  totalVat: number;
+  /** Total amount including tax */
+  totalIncludingTax: number;
+  /** List of invoice IDs generated from this quote (deposits + balance) */
+  invoiceIds: string[];
+  /** Creation timestamp */
+  createdAt: string;
+  /** Last update timestamp */
+  updatedAt: string;
+}
+
+/**
+ * Input for creating a new quote.
+ *
+ * Same buyer / seller / lines shape as `InvoiceInput`. The server
+ * auto-generates `quoteNumber`. Buyer can be provided inline or via
+ * `buyerId` referencing the registry (snapshot semantics identical to
+ * invoices — mutations to the registry entry do NOT affect the quote).
+ */
+export interface CreateQuoteInput {
+  /** Quote issue date (ISO 8601). Defaults to today if omitted. */
+  issueDate?: string;
+  /** Validity date (ISO 8601). After this date the quote is considered expired. */
+  validityDate?: string;
+  /** Seller company info (resolved from tenant profile if omitted) */
+  seller?: Company;
+  /** Buyer company info (required unless buyerId is provided) */
+  buyer?: Company;
+  /**
+   * UUID of an existing Buyer registry entry (scoped tenant + sub_tenant).
+   * When provided, the API snapshots the current buyer data onto the quote.
+   */
+  buyerId?: string;
+  /** Optional shipping address (Factur-X BG-13 shape) */
+  buyerShippingAddress?: ShippingAddress;
+  /**
+   * B2C flag. When true, buyer.siret / vatNumber / legal_id are optional.
+   */
+  buyerIsIndividual?: boolean;
+  /** Line items (minimum 1) */
+  lines: InvoiceLine[];
+  /** Currency (ISO 4217, defaults to EUR) */
+  currency?: string;
+  /** Optional free-text notes */
+  notes?: string;
+  /** Purchase order reference */
+  purchaseOrderRef?: string;
+  /** Payment terms text */
+  paymentTerms?: string;
+  /**
+   * Whether the buyer must provide an eIDAS EU-SES signature to accept
+   * the quote. Defaults to false.
+   */
+  signatureRequired?: boolean;
+  /**
+   * Deposit schedule: breakdown of expected partial payments before balance.
+   * Each entry specifies a percent XOR amount + optional dueDate + label.
+   */
+  depositSchedule?: QuoteDepositScheduleItem[];
+  /**
+   * Optional sub-tenant scoping (UUID).
+   * Anti-IDOR: 403 if the sub-tenant does not belong to the API key's tenant.
+   */
+  sub_tenant_id?: string;
+}
+
+/**
+ * Input for updating an existing quote (partial update supported).
+ * Blocked if the quote is in `accepted`, `converted`, or `cancelled` status.
+ */
+export interface UpdateQuoteInput {
+  /** New validity date */
+  validityDate?: string;
+  /** Replace all line items */
+  lines?: InvoiceLine[];
+  /** Update notes */
+  notes?: string;
+  /** Update purchase order reference */
+  purchaseOrderRef?: string;
+  /** Update payment terms */
+  paymentTerms?: string;
+  /** Update deposit schedule */
+  depositSchedule?: QuoteDepositScheduleItem[];
+  /** Update signature_required flag (only in draft) */
+  signatureRequired?: boolean;
+  /** Update buyer info (only in draft) */
+  buyer?: Company;
+  /** Update buyerId (only in draft) */
+  buyerId?: string;
+}
+
+/**
+ * Input for converting an accepted quote into a deposit invoice.
+ *
+ * At least one of `percent` or `amount` is required. Multiple calls
+ * are allowed on the same quote — each call creates a new deposit
+ * invoice. The balance invoice can only be created once all deposits
+ * are set.
+ */
+export interface ConvertToDepositInput {
+  /**
+   * Deposit amount as a percentage of the quote total (0–100, exclusive).
+   * Exactly one of `percent` or `amount` must be set.
+   */
+  percent?: number;
+  /**
+   * Fixed deposit amount in the quote currency.
+   * Exactly one of `percent` or `amount` must be set.
+   */
+  amount?: number;
+  /** Label shown on the deposit invoice (e.g. "Acompte 1 – 30%") */
+  label?: string;
+  /** Due date for the deposit invoice (ISO 8601) */
+  dueDate?: string;
+}
+
+/**
+ * Input for converting an accepted quote into the final balance invoice.
+ *
+ * The balance amount is computed automatically as:
+ *   quote.totalIncludingTax − sum(deposit invoices amounts)
+ *
+ * Returns a single Invoice with `invoice_type === 'balance'` and
+ * `parent_invoice_ids` referencing all previously created deposits.
+ */
+export interface ConvertToBalanceInput {
+  /** Due date for the balance invoice (ISO 8601) */
+  dueDate?: string;
+  /** Label override (defaults to "Solde – [quoteNumber]") */
+  label?: string;
 }
 
 // ============================================================================
@@ -711,18 +1034,96 @@ export interface FiscalIntegrityReport {
 }
 
 /**
- * Fiscal closing record
+ * Detail by-calendar for OpenTimestamps blockchain anchoring.
+ * Tracks each calendar server's submit success/failure independently.
+ *
+ * @since 2.10.0
+ */
+export interface FiscalClosingOtsCalendar {
+  /** Calendar URL (e.g. `https://alice.btc.calendar.opentimestamps.org`) */
+  calendar: string;
+  /** Whether the calendar accepted the submit */
+  ok: boolean;
+  /** Error message if `ok` is false */
+  error?: string | null;
+}
+
+/**
+ * Raw totals snapshot for a fiscal closing. Keys reflect the backend
+ * service `FiscalClosingService::calculateTotals()`.
+ *
+ * @since 2.10.0
+ */
+export interface FiscalClosingTotals {
+  invoices_count?: number;
+  invoices_total_ht?: number;
+  invoices_total_ttc?: number;
+  invoices_total_tax?: number;
+  credit_notes_count?: number;
+  credit_notes_total?: number;
+  total_entries?: number;
+}
+
+/**
+ * Fiscal closing record sealed by a SHA-256 `closingHash`. Returned by
+ * `scell_list_fiscal_closings`. Each closing chains to the previous one
+ * of the same `(tenant, sub_tenant)` pair (ISCA self-certification).
+ *
+ * @since 2.10.0 OTS fields added (`otsProofBase64`, `otsStatus`,
+ *               `otsSubmittedAt`, `otsBitcoinConfirmedAt`,
+ *               `otsCalendars`). The raw binary `ots_proof` BYTEA column
+ *               is intentionally not exposed (non-UTF8 string crashed
+ *               `json_encode()`); the API now ships a base64 version.
  */
 export interface FiscalClosing {
   id: string;
+  tenantId?: string;
+  /** Null for master tenant's own flows; UUID for a sub-tenant closing. */
+  subTenantId?: string | null;
   closingDate: string;
-  closingType: string;
-  status: string;
+  closingType: 'daily' | 'monthly' | 'annual' | string;
+  status: 'closed' | 'anchored' | string;
   entriesCount: number;
+
+  // Legacy / derived
   totalDebit: number;
   totalCredit: number;
+  /** Alias of `closingHash` in older responses. */
   chainHash?: string;
-  environment?: string;
+
+  // Sequence + chain hash
+  firstSequenceNumber?: number;
+  lastSequenceNumber?: number;
+  closingHash?: string;
+  previousClosingHash?: string | null;
+
+  totals?: FiscalClosingTotals;
+  cumulativeTotals?: Record<string, number>;
+
+  environment?: 'sandbox' | 'production' | string;
+
+  // CSV export (daily closing format)
+  csvPath?: string | null;
+  csvHash?: string | null;
+
+  /**
+   * Base64-encoded OpenTimestamps receipt anchoring `closingHash` into
+   * Bitcoin. The raw BYTEA blob is not exposed (non-UTF8 magic bytes).
+   * `null` until the closing has been submitted to OTS calendar servers.
+   *
+   * To verify externally, decode and pass to `ots verify`:
+   * ```ts
+   * import { writeFileSync } from 'node:fs';
+   * writeFileSync('proof.ots', Buffer.from(closing.otsProofBase64!, 'base64'));
+   * ```
+   */
+  otsProofBase64?: string | null;
+  otsStatus?: 'pending' | 'bitcoin_confirmed' | 'failed' | null;
+  otsSubmittedAt?: string | null;
+  otsBitcoinConfirmedAt?: string | null;
+  otsCalendars?: FiscalClosingOtsCalendar[] | null;
+
+  metadata?: Record<string, unknown> | null;
   createdAt?: string;
 }
 

@@ -1,6 +1,39 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.9.0
+Version: 2.10.0
+
+## v2.10.0 (2026-05-15) — Fix 500 on fiscal/closings + `ots_proof_base64`
+
+Mirror of the backend fix shipped the same day. The MCP tool
+`scell_list_fiscal_closings` was effectively broken in production: the
+underlying `GET /tenant/fiscal/closings` endpoint returned a generic
+`500 Server Error` whenever a daily closing had been anchored to
+OpenTimestamps. Backend root cause: the raw `ots_proof` BYTEA column
+(non-UTF8 magic bytes from the `.ots` format) crashed `json_encode()`.
+The API now exposes the OTS receipt encoded in base64.
+
+### Changes in this release
+
+- `FiscalClosing` type aligned with backend schema: adds `tenantId`,
+  `subTenantId`, `firstSequenceNumber`, `lastSequenceNumber`,
+  `closingHash`, `previousClosingHash`, `totals`, `cumulativeTotals`,
+  `environment`, `csvPath`, `csvHash`, `otsProofBase64`, `otsStatus`,
+  `otsSubmittedAt`, `otsBitcoinConfirmedAt`, `otsCalendars`,
+  `metadata`.
+- Two new exported types: `FiscalClosingTotals` and
+  `FiscalClosingOtsCalendar`.
+- `VERSION` constant bumped to `2.10.0`. Fully backward compatible
+  (every new field is optional).
+
+### Tool behaviour for LLMs
+
+`scell_list_fiscal_closings` now reliably returns a list of closings,
+including any OpenTimestamps anchor metadata. When `otsProofBase64` is
+not null, the closing has been submitted to OTS calendars. When
+`otsStatus === 'bitcoin_confirmed'`, the receipt has been upgraded
+with a Bitcoin block proof and can be verified offline by writing
+`Buffer.from(otsProofBase64, 'base64')` to a `.ots` file and running
+`ots verify <file>` (or any OpenTimestamps client library).
 
 ## v2.9.0 (2026-05-11) — Sub-Tenant Lifecycle: cascade delete + SuperPDP re-authorize
 
@@ -2699,6 +2732,8 @@ import type {
   FiscalComplianceData,
   FiscalIntegrityReport,
   FiscalClosing,
+  FiscalClosingOtsCalendar,
+  FiscalClosingTotals,
   FiscalEntry,
   FiscalKillSwitchStatus,
   FiscalRule,
@@ -2915,16 +2950,57 @@ interface FiscalIntegrityReport {
   details?: Record<string, unknown>;
 }
 
+interface FiscalClosingTotals {
+  invoices_count?: number;
+  invoices_total_ht?: number;
+  invoices_total_ttc?: number;
+  invoices_total_tax?: number;
+  credit_notes_count?: number;
+  credit_notes_total?: number;
+  total_entries?: number;
+}
+
+interface FiscalClosingOtsCalendar {
+  calendar: string;   // e.g. https://alice.btc.calendar.opentimestamps.org
+  ok: boolean;
+  error?: string | null;
+}
+
 interface FiscalClosing {
   id: string;
+  tenantId?: string;
+  subTenantId?: string | null;
   closingDate: string;
-  closingType: string;
-  status: string;
+  closingType: 'daily' | 'monthly' | 'annual';
+  status: 'closed' | 'anchored';
   entriesCount: number;
+
+  // Legacy / derived
   totalDebit: number;
   totalCredit: number;
-  chainHash?: string;
-  environment?: string;
+  chainHash?: string;            // alias of closingHash
+
+  // Sequence + chain hash (ISCA)
+  firstSequenceNumber?: number;
+  lastSequenceNumber?: number;
+  closingHash?: string;
+  previousClosingHash?: string | null;
+
+  totals?: FiscalClosingTotals;
+  cumulativeTotals?: Record<string, number>;
+  environment?: 'sandbox' | 'production';
+
+  csvPath?: string | null;
+  csvHash?: string | null;
+
+  // OpenTimestamps anchoring (since v2.10.0)
+  otsProofBase64?: string | null;  // base64 of the binary .ots receipt
+  otsStatus?: 'pending' | 'bitcoin_confirmed' | 'failed' | null;
+  otsSubmittedAt?: string | null;
+  otsBitcoinConfirmedAt?: string | null;
+  otsCalendars?: FiscalClosingOtsCalendar[] | null;
+
+  metadata?: Record<string, unknown> | null;
   createdAt?: string;
 }
 
