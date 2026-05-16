@@ -1124,6 +1124,82 @@ Invoice {
 | `emailMessage` | `string` | — | Custom message body in invitation email |
 | `webhookUrl` | `string` | — | URL to receive status webhook callbacks |
 | `redirectUrl` | `string` | — | URL to redirect signer after signing |
+| `initialsBlock` | `InitialsBlock` | — | Automatic initials block on intermediate pages (since v2.11.0) |
+| `mentions` | `Mention[]` | — | Free-text / checkbox mentions to place on the document (since v2.11.0) |
+| `dateBlock` | `DateBlock` | — | Automatic date stamp placed at signing time (since v2.11.0) |
+
+**`initialsBlock` type** (since v2.11.0):
+
+Automatically places the signer's initials (paraphe) on every intermediate page of the document. Fields use camelCase here and are mapped to `initials_block` (snake_case) before the REST API call.
+
+```typescript
+{
+  enabled?: boolean;                            // Activate the initials block. Default: false.
+  mode?: 'auto' | 'custom';                    // 'auto': derive from signer name. 'custom': use customText.
+  source?: 'signer_name' | 'custom';           // Source of initials text (used when mode='auto').
+  customText?: string;                          // Custom initials text (max 8 chars). Used when source='custom'.
+  pages?: 'all' | 'except_last' | number[];    // Pages to stamp. Default: 'all'.
+  position?: { x: number; y: number; unit?: 'percent' | 'pixel' };  // Position on each page.
+  fontSize?: number;                            // Font size in px.
+  color?: string;                               // Hex color e.g. "#1A1A1A".
+}
+```
+
+**`mentions` type** (since v2.11.0):
+
+Array of free-text fields or checkboxes the signer must fill in on the document (e.g. "Lu et approuvé", custom text input). Fields use camelCase here and the array key (`mentions`) plus internal snake_case fields (`signer_index`, `fallback_text`, `font_size`) are mapped before the REST API call.
+
+```typescript
+Array<{
+  label: string;                                // Mention label e.g. "Lu et approuvé".
+  required?: boolean;                           // Must the signer fill this? Default: false.
+  signerIndex?: number;                         // 0-based signer index (omit = all signers).
+  position: {
+    page: number;                               // Page number (1-indexed).
+    x: number;
+    y: number;
+    w?: number;                                 // Zone width (optional).
+    h?: number;                                 // Zone height (optional).
+    unit?: 'percent' | 'pixel';                 // Default: 'percent'.
+  };
+  fallbackText?: string;                        // Pre-filled text if signer leaves blank.
+  fontSize?: number;                            // Font size in px.
+  color?: string;                               // Hex color.
+}>
+```
+
+**`dateBlock` type** (since v2.11.0):
+
+Automatically stamps the signing date on the document at the moment the signer completes the signing flow. Fields use camelCase here and are mapped to `date_block` (snake_case) before the REST API call.
+
+```typescript
+{
+  enabled?: boolean;                            // Activate the date block. Default: false.
+  format?: string;                              // Date format string (e.g. "DD/MM/YYYY"). Backend default applies if absent.
+  timezone?: string;                            // IANA timezone e.g. "Europe/Paris". Default: "UTC".
+  position?: {
+    page: number | 'last';                      // Page number (1-indexed) or 'last' for the final page.
+    x: number;
+    y: number;
+    unit?: 'percent' | 'pixel';                 // Default: 'percent'.
+  };
+  fontSize?: number;                            // Font size in px.
+  color?: string;                               // Hex color.
+}
+```
+
+**camelCase → snake_case mapping** applied before the REST API call:
+
+| MCP field (camelCase) | REST API field (snake_case) |
+|---|---|
+| `initialsBlock` | `initials_block` |
+| `initialsBlock.customText` | `initials_block.custom_text` |
+| `initialsBlock.fontSize` | `initials_block.font_size` |
+| `mentions[].signerIndex` | `mentions[].signer_index` |
+| `mentions[].fallbackText` | `mentions[].fallback_text` |
+| `mentions[].fontSize` | `mentions[].font_size` |
+| `dateBlock` | `date_block` |
+| `dateBlock.fontSize` | `date_block.font_size` |
 
 **Signer type:**
 
@@ -1187,6 +1263,9 @@ SignatureRequest {
 - "Send this NDA to both alice@company.com and bob@company.com for sequential signing — Alice signs first, then Bob."
 - "Create a signature request with SMS OTP for signer Marie Dupont, email marie@dupont.fr, phone +33612345678."
 - "Create an AES-level signature request expiring in 7 days for this service agreement."
+- "Create a signature request with initials on every page except the last, using the signer's name, placed at position x=85, y=90 (percent)."
+- "Add a 'Lu et approuvé' mention on page 3 at position x=10, y=80 that the signer must fill in."
+- "Create a signature with an automatic date stamp on the last page (Europe/Paris timezone, format DD/MM/YYYY) at x=60, y=90."
 
 ---
 

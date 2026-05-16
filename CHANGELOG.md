@@ -4,9 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
-## [2.11.0] - 2026-05-15
+## [2.12.0] - 2026-05-16
 
 ### Added
+
+- **3 new signature block parameters** for `scell_create_signature` (all optional,
+  backward-compatible):
+  - `initialsBlock` (`InitialsBlock`) — Automatic initials (paraphe) stamped on
+    intermediate pages. Configurable mode (`auto` / `custom`), source, customText
+    (max 8 chars), pages (`all` / `except_last` / `number[]`), position, fontSize,
+    and color. Mapped to `initials_block` (snake_case) before the REST API call.
+  - `mentions` (`Mention[]`) — Array of free-text / checkbox mentions placed on
+    the document for the signer to fill in (e.g. "Lu et approuvé"). Each mention
+    carries a label, required flag, optional signerIndex (0-based), position
+    (page, x, y, w?, h?, unit), fallbackText, fontSize, and color. camelCase fields
+    mapped to snake_case (`signer_index`, `fallback_text`, `font_size`) before the
+    REST API call.
+  - `dateBlock` (`DateBlock`) — Automatic date stamp placed at signing time.
+    Configurable format string, IANA timezone, position (page / `'last'`, x, y,
+    unit), fontSize, and color. Mapped to `date_block` (snake_case) before the
+    REST API call.
+- **3 new exported TypeScript types**: `InitialsBlock`, `Mention`, `DateBlock`
+  (available from `@scell/mcp-client` v2.11.0).
+- **llms.txt** updated: `scell_create_signature` now documents all 3 blocks with
+  their full TypeScript shape, camelCase → snake_case mapping table, and 3 new
+  example prompts (initials, mention, date).
+
+- **11 new MCP tools** for the Quotes (Devis) surface — full lifecycle
+  from creation to invoicing:
 
 - **11 new MCP tools** for the Quotes (Devis) surface — full lifecycle
   from creation to invoicing:

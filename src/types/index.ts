@@ -832,6 +832,131 @@ export interface SignaturePosition {
 }
 
 /**
+ * Bloc paraphe (initiales) automatique appose sur les pages intermediaires.
+ *
+ * Quand `enabled` est `true`, Scell.io/OpenAPI.com insere automatiquement
+ * les initiales du signataire sur chaque page couverte par `pages`.
+ * Les coordonnees sont fournies en `percent` (defaut) ou `pixel`.
+ *
+ * Correspond au champ `initials_block` (snake_case) de l'API REST.
+ * Le MCP client expose les champs en camelCase (LLM-friendly).
+ */
+export interface InitialsBlock {
+  /** Active le bloc paraphe. Defaut : `false`. */
+  enabled?: boolean;
+  /**
+   * Mode de generation des initiales.
+   * - `'auto'` (defaut) : initiales derivees du nom du signataire.
+   * - `'custom'`        : texte libre fourni via `customText`.
+   */
+  mode?: 'auto' | 'custom';
+  /**
+   * Source du texte des initiales (utilise si `mode === 'auto'`).
+   * - `'signer_name'` (defaut) : ex. "J.D." pour "John Doe".
+   * - `'custom'`               : texte fourni via `customText`.
+   */
+  source?: 'signer_name' | 'custom';
+  /** Texte custom des initiales (max 8 caracteres). Utilise si `source === 'custom'`. */
+  customText?: string;
+  /**
+   * Pages sur lesquelles apposer les initiales.
+   * - `'all'`         (defaut) : toutes les pages.
+   * - `'except_last'`          : toutes sauf la derniere (souvent deja couverte par la signature).
+   * - `number[]`               : liste de numeros de pages (1-indexes).
+   */
+  pages?: 'all' | 'except_last' | number[];
+  /** Position du bloc paraphe sur la page. Coordonnees relatives a la page. */
+  position?: {
+    /** Coordonnee X. Unite definie par `unit`. */
+    x: number;
+    /** Coordonnee Y. Unite definie par `unit`. */
+    y: number;
+    /** Unite des coordonnees. Defaut : `'percent'`. */
+    unit?: 'percent' | 'pixel';
+  };
+  /** Taille de la police (px). Defaut backend applique si absent. */
+  fontSize?: number;
+  /** Couleur du texte en hexadecimal `#RRGGBB`. Defaut : noir. */
+  color?: string;
+}
+
+/**
+ * Mention libre apposee sur le document, a remplir par le signataire
+ * (ex: "Lu et approuve", case a cocher, champ de texte libre).
+ *
+ * Correspond au champ `mentions` (array snake_case) de l'API REST.
+ * Le MCP client expose les champs en camelCase (LLM-friendly).
+ */
+export interface Mention {
+  /** Libelle de la mention (ex: "Lu et approuve"). */
+  label: string;
+  /** La mention doit-elle etre saisie obligatoirement ? Defaut : `false`. */
+  required?: boolean;
+  /**
+   * Index (0-base) du signataire auquel cette mention est adressee.
+   * Si absent, la mention est commune a tous les signataires.
+   */
+  signerIndex?: number;
+  /** Position de la mention sur la page. */
+  position: {
+    /** Numero de page (1-indexe). */
+    page: number;
+    /** Coordonnee X. */
+    x: number;
+    /** Coordonnee Y. */
+    y: number;
+    /** Largeur de la zone (optionnel). */
+    w?: number;
+    /** Hauteur de la zone (optionnel). */
+    h?: number;
+    /** Unite des coordonnees. Defaut : `'percent'`. */
+    unit?: 'percent' | 'pixel';
+  };
+  /** Texte pre-rempli si le signataire ne saisit rien (optionnel). */
+  fallbackText?: string;
+  /** Taille de la police (px). */
+  fontSize?: number;
+  /** Couleur du texte en hexadecimal `#RRGGBB`. */
+  color?: string;
+}
+
+/**
+ * Bloc de date automatique appose sur le document au moment de la signature.
+ *
+ * Correspond au champ `date_block` (snake_case) de l'API REST.
+ * Le MCP client expose les champs en camelCase (LLM-friendly).
+ */
+export interface DateBlock {
+  /** Active le bloc de date. Defaut : `false`. */
+  enabled?: boolean;
+  /**
+   * Format de date (compatible moment.js / dayjs).
+   * Ex: `'DD/MM/YYYY'`, `'YYYY-MM-DD'`, `'Do MMMM YYYY'`.
+   * Defaut backend si absent.
+   */
+  format?: string;
+  /** Fuseau horaire IANA (ex: `'Europe/Paris'`). Defaut : `'UTC'`. */
+  timezone?: string;
+  /** Position du bloc de date sur le document. */
+  position?: {
+    /**
+     * Numero de page (1-indexe) ou `'last'` pour la derniere page.
+     */
+    page: number | 'last';
+    /** Coordonnee X. */
+    x: number;
+    /** Coordonnee Y. */
+    y: number;
+    /** Unite des coordonnees. Defaut : `'percent'`. */
+    unit?: 'percent' | 'pixel';
+  };
+  /** Taille de la police (px). */
+  fontSize?: number;
+  /** Couleur du texte en hexadecimal `#RRGGBB`. */
+  color?: string;
+}
+
+/**
  * Definition d'un signataire pour la creation.
  */
 export interface SignerInput {
@@ -915,6 +1040,27 @@ export interface SignatureInput {
    * Available since `@scell/mcp-client` v2.8.0.
    */
   sub_tenant_id?: string;
+  /**
+   * Bloc paraphe (initiales) automatique sur les pages intermediaires.
+   *
+   * Mapped to `initials_block` (snake_case) before the REST API call.
+   * Available since `@scell/mcp-client` v2.11.0.
+   */
+  initialsBlock?: InitialsBlock;
+  /**
+   * Mentions libres a apposer sur le document (champs texte, cases a cocher).
+   *
+   * Mapped to `mentions` (snake_case keys inside each object) before the REST API call.
+   * Available since `@scell/mcp-client` v2.11.0.
+   */
+  mentions?: Mention[];
+  /**
+   * Bloc de date automatique appose au moment de la signature.
+   *
+   * Mapped to `date_block` (snake_case) before the REST API call.
+   * Available since `@scell/mcp-client` v2.11.0.
+   */
+  dateBlock?: DateBlock;
 }
 
 /**

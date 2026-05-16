@@ -32,6 +32,9 @@ export type {
   SignatureRequest,
   SignatureListQuery,
   TenantSignatureListQuery,
+  InitialsBlock,
+  Mention,
+  DateBlock,
 
   // Fiscal Compliance types
   FiscalComplianceData,
