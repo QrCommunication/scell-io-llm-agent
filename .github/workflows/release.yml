@@ -1,17 +1,14 @@
 name: Release
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 1.2.0)'
-        required: true
-        type: string
-      prerelease:
-        description: 'Is this a pre-release?'
+        description: 'Release version (e.g., 1.2.0) — only used in workflow_dispatch mode'
         required: false
-        type: boolean
-        default: false
+        type: string
 
 jobs:
   build-test:
@@ -45,6 +42,10 @@ jobs:
     permissions:
       contents: read
       id-token: write  # Required for OIDC trusted publishing
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+      DISPATCH_VERSION: ${{ inputs.version }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,11 +56,27 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Resolve release version
+        id: version
+        run: |
+          if [ "$EVENT_NAME" = "release" ]; then
+            VERSION="${RELEASE_TAG#v}"
+          else
+            VERSION="$DISPATCH_VERSION"
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version resolved (release tag or workflow input missing)"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Update package version
-        run: npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
+      - name: Sync package version with release
+        env:
+          RESOLVED_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: npm version "$RESOLVED_VERSION" --no-git-tag-version --allow-same-version
 
       - name: Build
         run: npm run build
@@ -68,63 +85,3 @@ jobs:
       # Provenance is generated automatically
       - name: Publish to npm
         run: npm publish --access public
-
-  github-release:
-    name: Create GitHub Release
-    needs: publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      RELEASE_VERSION: ${{ inputs.version }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Update package version
-        run: npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
-
-      - name: Commit version bump
-        run: |
-          git add package.json package-lock.json
-          git diff --staged --quiet || (git commit -m "chore: bump version to $RELEASE_VERSION" && git push)
-
-      # NOTE : pas de creation manuelle du tag via gh api.
-      # softprops/action-gh-release@v2 detecte automatiquement si le tag
-      # existe deja (cas push manuel pre-workflow) et le reutilise, ou
-      # le cree pointant vers HEAD du checkout (cas workflow_dispatch
-      # autonome). Idempotent et compatible avec les deux modes.
-      # cf. https://github.com/softprops/action-gh-release#-customizing
-
-      - name: Extract release notes from CHANGELOG
-        id: changelog
-        run: |
-          NOTES=$(awk "/^## \[${RELEASE_VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
-          if [ -z "$NOTES" ]; then
-            NOTES="Release v${RELEASE_VERSION}"
-          fi
-          echo "$NOTES" > release_notes.md
-
-      - name: Create GitHub Release (idempotent on existing tag)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ inputs.version }}
-          name: v${{ inputs.version }}
-          body_path: release_notes.md
-          draft: false
-          prerelease: ${{ inputs.prerelease }}
-          # make_latest: 'true' pour marquer cette release comme latest (defaut).
-          make_latest: 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
