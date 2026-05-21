@@ -99,6 +99,23 @@ export type {
   // Webhook types
   WebhookEventType,
   WebhookPayload,
+
+  // Payment Schedule types (since 2.13.0)
+  PaymentScheduleAmountType,
+  PaymentScheduleLineStatus,
+  PaymentScheduleLineInput,
+  PaymentSchedulePatchInput,
+  PaymentScheduleLine,
+  NextDueLine,
+  OverdueLine,
+  PaymentSummaryInvoiceStatus,
+  PaymentSummary,
+  PaymentSchedulePreset,
+  InvoiceSendByEmailResult,
+
+  // Branding types (since 2.13.0)
+  Branding,
+  BrandingInput,
 } from './types/index.js';
 
 // Export configuration generators

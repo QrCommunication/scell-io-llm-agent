@@ -4,6 +4,70 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.13.0] - 2026-05-21
+
+### Added
+
+- **6 new MCP tools** for the Payment Schedule (échéancier de paiement) surface
+  on accepted quotes — full lifecycle from plan creation to deposit-invoice
+  conversion:
+  - `scell_set_quote_payment_schedule` — Create or replace the full schedule
+    atomically. `POST /api/v1/quotes/{id}/payment-schedule` with
+    `{ lines: PaymentScheduleLineInput[] }`. Blocked when the quote is
+    accepted/converted/cancelled. Returns `PaymentScheduleLine[]`.
+  - `scell_patch_quote_payment_schedule` — Partial update (add / update /
+    remove lines) in a single atomic call. Only `pending` lines can be mutated.
+    `PATCH /api/v1/quotes/{id}/payment-schedule`.
+  - `scell_delete_quote_payment_schedule` — Remove all lines from a schedule.
+    `DELETE /api/v1/quotes/{id}/payment-schedule`. Blocked if any line is
+    `invoiced` or if the quote is accepted/converted.
+  - `scell_get_quote_payment_summary` — Real-time tracker of invoiced vs.
+    remaining TTC amounts, overdue lines, and SuperPDP enrichment per invoice.
+    `GET /api/v1/quotes/{id}/payment-summary`. Returns `PaymentSummary`.
+  - `scell_convert_quote_schedule_line_to_deposit` — Convert a specific
+    `pending` line into a deposit invoice (acompte). Optional overrides:
+    `due_date`, `label`, `send_email`. Returns `Invoice` with
+    `invoice_type='deposit'`. `POST /api/v1/quotes/{id}/payment-schedule/lines/{line_id}/convert`.
+  - `scell_list_payment_schedule_presets` — List server-defined preset schedules
+    (30/70, 50/50, 30/30/40, 3 monthly instalments). Returns
+    `PaymentSchedulePreset[]` with ready-to-use `lines` arrays the LLM can
+    suggest to users. `GET /api/v1/payment-schedule/presets`.
+
+- **1 new invoice tool**:
+  - `scell_send_invoice_by_email` — Send an invoice to the buyer by email with
+    optional `recipient_email` override, `cc[]`, and custom `message`. Auto-
+    validates `draft` invoices before sending. Recipient resolved in cascade:
+    explicit override → `buyer_billing_email` → `buyer_email` → quote buyer
+    email → `422 BUYER_HAS_NO_EMAIL`. Returns `InvoiceSendByEmailResult` with
+    `sent_to`, `sent_at`, `message_id`, `cc`.
+    `POST /api/v1/invoices/{id}/send-by-email`.
+
+- **4 new branding tools** for tenant and sub-tenant email customization:
+  - `scell_get_tenant_branding` — `GET /api/v1/tenant/branding`. Returns the
+    master-tenant's `Branding` with `is_complete` flag and `missing_fields[]`.
+  - `scell_update_tenant_branding` — `PATCH /api/v1/tenant/branding`. Partial
+    update of `brand_logo_url`, `brand_primary_color`, `brand_email_footer`,
+    `brand_email_signature`. All optional; set `null` to clear.
+  - `scell_get_sub_tenant_branding` — `GET /api/v1/sub-tenants/{id}/branding`.
+    Anti-IDOR scoped to the calling tenant.
+  - `scell_update_sub_tenant_branding` — `PATCH /api/v1/sub-tenants/{id}/branding`.
+    Same fields as tenant branding but scoped to the sub-tenant.
+
+- **12 new exported TypeScript types** (all backward-compatible, `@since 2.13.0`):
+  - `PaymentScheduleAmountType` — `'percent' | 'amount'`
+  - `PaymentScheduleLineStatus` — `'pending' | 'invoiced' | 'cancelled'`
+  - `PaymentScheduleLineInput` — input for creating a schedule line
+  - `PaymentSchedulePatchInput` — input for partial PATCH (add / update / remove)
+  - `PaymentScheduleLine` — full schedule line response
+  - `NextDueLine` — earliest upcoming due line in the summary
+  - `OverdueLine` — overdue line in the summary
+  - `PaymentSummaryInvoiceStatus` — SuperPDP / PEPPOL enrichment per invoice
+  - `PaymentSummary` — full payment tracker response (scheduled vs. invoiced)
+  - `PaymentSchedulePreset` — server-defined preset schedule template
+  - `Branding` — branding response (tenant or sub-tenant)
+  - `BrandingInput` — partial input for PATCH branding endpoints
+  - `InvoiceSendByEmailResult` — response from the send-by-email endpoint
+
 ## [2.12.0] - 2026-05-16
 
 ### Added

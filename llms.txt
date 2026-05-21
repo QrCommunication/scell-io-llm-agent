@@ -1,6 +1,94 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.10.0
+Version: 2.13.0
+
+## v2.13.0 (2026-05-21) — Payment Schedule + Invoice Send-by-Email + Branding
+
+11 new MCP tools covering three new backend surfaces:
+
+### Payment Schedule tools (échéancier de paiement)
+
+An échéancier is a contractual payment plan attached to an accepted quote. Lines
+are typed `percent | amount`, anchored to a `due_date` or a `milestone_label`
+(or both), and optionally auto-generate a draft deposit invoice via CRON when
+`auto_generate=true`. Lines are immutable once the quote is signed.
+
+| Tool | Endpoint | Auth |
+|---|---|---|
+| `scell_set_quote_payment_schedule` | `POST /api/v1/quotes/{id}/payment-schedule` | `sk_*` / Bearer |
+| `scell_patch_quote_payment_schedule` | `PATCH /api/v1/quotes/{id}/payment-schedule` | `sk_*` / Bearer |
+| `scell_delete_quote_payment_schedule` | `DELETE /api/v1/quotes/{id}/payment-schedule` | `sk_*` / Bearer |
+| `scell_get_quote_payment_summary` | `GET /api/v1/quotes/{id}/payment-summary` | `sk_*` / Bearer |
+| `scell_convert_quote_schedule_line_to_deposit` | `POST /api/v1/quotes/{id}/payment-schedule/lines/{line_id}/convert` | `sk_*` / Bearer |
+| `scell_list_payment_schedule_presets` | `GET /api/v1/payment-schedule/presets` | `sk_*` / Bearer |
+
+### Invoice email tool
+
+| Tool | Endpoint | Auth |
+|---|---|---|
+| `scell_send_invoice_by_email` | `POST /api/v1/invoices/{id}/send-by-email` | `sk_*` / Bearer |
+
+Recipient cascade: explicit override → `buyer_billing_email` → `buyer_email` →
+quote buyer email → `422 BUYER_HAS_NO_EMAIL`. Auto-validates `draft` invoices.
+
+### Branding tools
+
+Customize logo, primary color, footer, and signature on all outbound emails.
+Applied when `is_complete=true` (logo + color + footer all set); otherwise
+Scell.io default branding is used as fallback.
+
+| Tool | Endpoint | Auth |
+|---|---|---|
+| `scell_get_tenant_branding` | `GET /api/v1/tenant/branding` | `sk_*` / Bearer |
+| `scell_update_tenant_branding` | `PATCH /api/v1/tenant/branding` | `sk_*` / Bearer |
+| `scell_get_sub_tenant_branding` | `GET /api/v1/sub-tenants/{id}/branding` | `sk_*` / Bearer |
+| `scell_update_sub_tenant_branding` | `PATCH /api/v1/sub-tenants/{id}/branding` | `sk_*` / Bearer |
+
+Total tool count now **55** (was 44).
+
+### New types in this release
+
+- `PaymentScheduleAmountType` — `'percent' | 'amount'`
+- `PaymentScheduleLineStatus` — `'pending' | 'invoiced' | 'cancelled'`
+- `PaymentScheduleLineInput` — input for creating/replacing a schedule line
+- `PaymentSchedulePatchInput` — input for partial PATCH (add / update / remove)
+- `PaymentScheduleLine` — full schedule line response object
+- `NextDueLine` — earliest upcoming due line in the payment summary
+- `OverdueLine` — overdue line in the payment summary
+- `PaymentSummaryInvoiceStatus` — SuperPDP / PEPPOL enrichment per invoice
+- `PaymentSummary` — full payment tracker response
+- `PaymentSchedulePreset` — server-defined preset schedule template
+- `InvoiceSendByEmailResult` — response from `send-by-email`
+- `Branding` — branding response (tenant or sub-tenant)
+- `BrandingInput` — partial input for PATCH branding endpoints
+
+### LLM guidance
+
+**Payment schedule workflow:**
+1. Use `scell_list_payment_schedule_presets` to suggest templates to the user.
+2. Call `scell_set_quote_payment_schedule` with the chosen or custom lines.
+3. Poll `scell_get_quote_payment_summary` to track invoiced vs. remaining.
+4. When a pending line is ready, call `scell_convert_quote_schedule_line_to_deposit`
+   (pass `send_email: true` to validate + send in one step).
+5. When all deposits are done, call `scell_convert_quote_to_balance` (existing
+   v2.11 tool) to emit the final balance invoice.
+
+**Branding setup guidance:**
+1. Call `scell_get_tenant_branding` to check `is_complete` and `missing_fields`.
+2. Guide the user to provide the missing fields (logo URL, hex color, footer text).
+3. Call `scell_update_tenant_branding` with the completed fields.
+4. Verify `is_complete: true` in the response before confirming to the user.
+
+**Send-by-email error handling:**
+- `422 BUYER_HAS_NO_EMAIL` — the invoice has no buyer email at all. Ask the user
+  to provide an explicit `recipient_email` override.
+- `422 INVOICE_ALREADY_SENT` — the invoice was already dispatched (idempotent).
+- `422 INVOICE_NOT_SENDABLE` — the invoice is in a non-sendable status
+  (e.g. `cancelled`, `paid`).
+
+---
+
+## v2.10.0 (2026-05-15) — Fix 500 on fiscal/closings + `ots_proof_base64`
 
 ## v2.10.0 (2026-05-15) — Fix 500 on fiscal/closings + `ots_proof_base64`
 

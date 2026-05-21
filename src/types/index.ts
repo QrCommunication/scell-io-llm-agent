@@ -2020,3 +2020,401 @@ export interface WebhookPayload<T = unknown> {
   /** Signature for verification */
   signature: string;
 }
+
+// ============================================================================
+// Payment Schedule Types (since 2.13.0)
+// ============================================================================
+
+/**
+ * Status lifecycle of a payment schedule line.
+ *
+ * - `pending`   — not yet invoiced; the tenant must manually convert it, or
+ *                 `auto_generate=true` causes the CRON to create a draft invoice
+ *                 on the `due_date`.
+ * - `invoiced`  — a deposit invoice has been created from this line; the line
+ *                 is locked and `invoice_id` is set.
+ * - `cancelled` — the line was cancelled; it no longer contributes to the
+ *                 planned total.
+ */
+export type PaymentScheduleLineStatus = 'pending' | 'invoiced' | 'cancelled';
+
+/**
+ * Amount type for a payment schedule line.
+ *
+ * - `'percent'` — `amount_value` is a percentage of the quote total TTC
+ *                 (0.01 – 100, inclusive). Must be ≤ 100. The server
+ *                 snapshots the TTC equivalent at quote acceptance.
+ * - `'amount'`  — `amount_value` is a fixed amount in the quote's currency
+ *                 (> 0). Must not exceed the quote total TTC.
+ */
+export type PaymentScheduleAmountType = 'percent' | 'amount';
+
+/**
+ * Input for a single payment schedule line when creating or replacing an
+ * échéancier (POST /api/v1/quotes/{quote}/payment-schedule).
+ *
+ * Constraints:
+ * - At least one of `due_date` OR `milestone_label` MUST be provided.
+ * - `auto_generate` can only be `true` when `due_date` is present.
+ * - For `amount_type = 'percent'`, `amount_value` must be in (0, 100].
+ * - For `amount_type = 'amount'`, `amount_value` must be > 0.
+ *
+ * @since 2.13.0
+ */
+export interface PaymentScheduleLineInput {
+  /**
+   * Display order of the line (1-indexed). The server recomputes the natural
+   * order automatically when `order` is omitted; provide it explicitly only
+   * when you need a specific arrangement.
+   */
+  order?: number;
+  /** Whether the value is a percentage of the quote total or a fixed amount. */
+  amount_type: PaymentScheduleAmountType;
+  /**
+   * The value: percentage (0.01–100) or fixed currency amount (> 0).
+   * For percent lines, the server snapshots the TTC equivalent at quote acceptance.
+   */
+  amount_value: number;
+  /**
+   * ISO 8601 date on which this payment is due (YYYY-MM-DD).
+   * Required if `milestone_label` is absent. Used by the CRON job when
+   * `auto_generate` is `true`.
+   */
+  due_date?: string | null;
+  /**
+   * Free-text milestone label (e.g. "Livraison MVP", "Acceptation client").
+   * Required if `due_date` is absent. Lines without a `due_date` can only
+   * be converted to deposit invoices manually.
+   */
+  milestone_label?: string | null;
+  /**
+   * Optional free-text description shown on the deposit invoice.
+   */
+  description?: string | null;
+  /**
+   * If `true`, the CRON job (daily at 06:00 UTC) creates a draft deposit
+   * invoice automatically on the `due_date`. The tenant still validates and
+   * sends it manually. Requires `due_date` to be present.
+   * Default: `false`.
+   */
+  auto_generate?: boolean;
+}
+
+/**
+ * Input for a partial PATCH on the payment schedule.
+ * Sent to PATCH /api/v1/quotes/{quote}/payment-schedule.
+ *
+ * Any combination of `add`, `update`, and `remove` is accepted in a single
+ * call. The server applies them atomically inside a database transaction.
+ * Blocked if the quote is in `accepted`, `converted`, or `cancelled` status.
+ *
+ * @since 2.13.0
+ */
+export interface PaymentSchedulePatchInput {
+  /** New lines to append to the schedule (server assigns order). */
+  add?: PaymentScheduleLineInput[];
+  /** Partial updates to existing lines. Each entry requires an `id`. */
+  update?: Array<Partial<PaymentScheduleLineInput> & { id: string }>;
+  /** UUIDs of lines to remove. Only `pending` lines can be removed. */
+  remove?: string[];
+}
+
+/**
+ * A single payment schedule line as returned by the API.
+ *
+ * @since 2.13.0
+ */
+export interface PaymentScheduleLine {
+  /** Unique UUID of this line. */
+  id: string;
+  /** UUID of the parent quote. */
+  quote_id: string;
+  /** Display order (1-indexed, unique within the quote). */
+  order: number;
+  /** Whether the value is percent or fixed amount. */
+  amount_type: PaymentScheduleAmountType;
+  /** The raw value: percentage (0.01–100) or fixed amount (> 0). */
+  amount_value: number;
+  /**
+   * TTC amount snapshotted at quote acceptance (null before acceptance).
+   * For `amount_type = 'percent'`, this is `(amount_value / 100) * quote.total_ttc`.
+   * For `amount_type = 'amount'`, this equals `amount_value` (same currency).
+   */
+  amount_ttc_snapshot: number | null;
+  /** ISO 8601 due date (null for milestone-only lines). */
+  due_date: string | null;
+  /** Free-text milestone label (null if `due_date` was used as sole trigger). */
+  milestone_label: string | null;
+  /** Optional free-text description for the deposit invoice. */
+  description: string | null;
+  /** Whether the CRON auto-creates a draft deposit invoice on `due_date`. */
+  auto_generate: boolean;
+  /** Line lifecycle status. */
+  status: PaymentScheduleLineStatus;
+  /**
+   * UUID of the deposit invoice created from this line.
+   * Set when `status === 'invoiced'`; `null` otherwise.
+   */
+  invoice_id: string | null;
+  /** ISO 8601 timestamp when the invoice was generated. `null` if not yet invoiced. */
+  invoiced_at: string | null;
+  /**
+   * ISO 8601 timestamp when the line was locked (equals `quote.accepted_at`
+   * after the buyer signs). Structural changes are forbidden after locking.
+   * Only `status`, `invoice_id`, `invoiced_at`, and reminder fields can change.
+   */
+  locked_at: string | null;
+  /** ISO 8601 creation timestamp. */
+  created_at: string;
+  /** ISO 8601 last-update timestamp. */
+  updated_at: string;
+}
+
+/**
+ * Summary of the next upcoming due payment schedule line.
+ *
+ * @since 2.13.0
+ */
+export interface NextDueLine {
+  /** UUID of the payment schedule line. */
+  line_id: string;
+  /** ISO 8601 due date. */
+  due_date: string;
+  /** TTC amount (absolute, in quote currency). */
+  amount_ttc: number;
+  /** Display label (milestone_label or auto-generated from due_date). */
+  label: string;
+  /** Number of calendar days until `due_date` (negative if overdue). */
+  days_until: number;
+}
+
+/**
+ * An overdue payment schedule line entry in the payment summary.
+ *
+ * @since 2.13.0
+ */
+export interface OverdueLine {
+  /** UUID of the payment schedule line. */
+  line_id: string;
+  /** ISO 8601 due date (already passed). */
+  due_date: string;
+  /** TTC amount (absolute, in quote currency). */
+  amount_ttc: number;
+  /** Display label. */
+  label: string;
+  /** Number of calendar days since `due_date` passed. Always > 0. */
+  days_overdue: number;
+}
+
+/**
+ * SuperPDP enrichment for an invoice attached to a payment schedule.
+ * Displays the PEPPOL transmission / buyer acceptance status.
+ *
+ * @since 2.13.0
+ */
+export interface PaymentSummaryInvoiceStatus {
+  /** UUID of the deposit / balance invoice. */
+  invoice_id: string;
+  /** Human-readable invoice number (e.g. "FA-2026-0042"). */
+  invoice_number: string;
+  /** SuperPDP / PEPPOL transmission status of this invoice. */
+  status: string;
+  /** ISO 8601 timestamp when the buyer accepted the invoice. `null` if not yet. */
+  accepted_at: string | null;
+  /** ISO 8601 timestamp when the buyer confirmed payment. `null` if not yet. */
+  paid_at: string | null;
+}
+
+/**
+ * Payment summary for a quote — the tracker of invoiced vs. remaining amounts.
+ *
+ * Returned by GET /api/v1/quotes/{quote}/payment-summary.
+ * All monetary amounts are in the quote's currency (ISO 4217).
+ *
+ * @since 2.13.0
+ */
+export interface PaymentSummary {
+  /** Minimal quote context. */
+  quote: {
+    id: string;
+    quote_number: string;
+    /** Quote total TTC (including tax). */
+    total_ttc: number;
+  };
+  /** Échéancier (schedule) aggregates across all lines. */
+  schedule: {
+    /**
+     * Sum of all non-cancelled line TTC amounts (snapshot for percent lines).
+     * May be < `quote.total_ttc` when the balance invoice is not yet planned.
+     */
+    planned_total_ttc: number;
+    /** `quote.total_ttc − planned_total_ttc` — amount not covered by any line. */
+    planned_remainder: number;
+    /** Total number of non-cancelled schedule lines. */
+    lines_count: number;
+    /** Lines in `pending` status (not yet invoiced). */
+    pending_count: number;
+    /** Lines in `invoiced` status. */
+    invoiced_count: number;
+  };
+  /** Actual invoicing tracker (computed from linked deposit + balance invoices). */
+  invoiced: {
+    /** Sum of all deposit + balance invoice totals TTC (gross, before credits). */
+    gross_ttc: number;
+    /** Sum of credit note totals TTC issued against those invoices. */
+    credits_ttc: number;
+    /** `gross_ttc − credits_ttc` (net invoiced). */
+    net_ttc: number;
+    /** `quote.total_ttc − net_ttc` (amount still to invoice). */
+    remaining_ttc: number;
+    /** `(remaining_ttc / quote.total_ttc) × 100` — percentage still to invoice. */
+    remaining_pct: number;
+  };
+  /** The earliest pending line with a `due_date`. `null` if none. */
+  next_due: NextDueLine | null;
+  /** All pending lines whose `due_date` is strictly in the past. */
+  overdue: OverdueLine[];
+  /** SuperPDP / PEPPOL enrichment for all linked invoices. */
+  superpdp_status: PaymentSummaryInvoiceStatus[];
+}
+
+/**
+ * A pre-configured payment schedule preset (e.g. "30 % / 70 %").
+ * Returned by GET /api/v1/payment-schedule/presets.
+ *
+ * Presets are server-defined templates the LLM agent can suggest to users
+ * before they create a custom schedule. Each preset expands to ready-to-use
+ * `PaymentScheduleLineInput[]` that can be sent directly to
+ * POST /api/v1/quotes/{quote}/payment-schedule.
+ *
+ * @since 2.13.0
+ */
+export interface PaymentSchedulePreset {
+  /** Machine key (e.g. `"30-70"`, `"50-50"`, `"30-30-40"`, `"3x-monthly"`). */
+  key: string;
+  /** Human-readable label shown in UI / LLM responses. */
+  label: string;
+  /**
+   * Expanded lines ready to be used as the `lines` array in
+   * POST /api/v1/quotes/{quote}/payment-schedule.
+   * Dates are relative offsets — no `due_date` is set; the user fills them in.
+   */
+  lines: PaymentScheduleLineInput[];
+}
+
+/**
+ * Response from POST /api/v1/invoices/{invoice}/send-by-email.
+ * Confirms the email was dispatched and records the effective recipient.
+ *
+ * @since 2.13.0
+ */
+export interface InvoiceSendByEmailResult {
+  /** Effective recipient email (after cascade resolution). */
+  sent_to: string;
+  /** ISO 8601 UTC timestamp when the email was dispatched. */
+  sent_at: string;
+  /** Unique message ID for tracking (format: `<uuid@scell.io>`). */
+  message_id: string;
+  /** CC addresses that received a copy. Empty array if none. */
+  cc: string[];
+}
+
+// ============================================================================
+// Branding Types (since 2.13.0)
+// ============================================================================
+
+/**
+ * Email branding configuration for a tenant or sub-tenant.
+ *
+ * Stored on the `companies` table (columns added in migration 2026-05-21).
+ * Applied to all outbound emails (invoice, credit note, quote) when ALL
+ * required fields are populated; otherwise the default Scell.io branding
+ * is used as fallback.
+ *
+ * Field notes:
+ * - `brand_logo_url` is DISTINCT from `logo_url` (the Factur-X PDF logo).
+ *   Fallback chain: `brand_logo_url` → `logo_url` → Scell.io default logo.
+ * - `brand_primary_color` must be a 6-digit hex color (`#RRGGBB`).
+ * - `is_complete` is server-computed: `true` when logo + color + footer are
+ *   all non-null; the LLM should surface missing fields to guide the user.
+ *
+ * @since 2.13.0
+ */
+export interface Branding {
+  /**
+   * Scope of this branding object.
+   * - `'tenant'`     — master-tenant default branding.
+   * - `'sub_tenant'` — sub-tenant-specific override.
+   */
+  scope: 'tenant' | 'sub_tenant';
+  /** UUID of the Company that holds these branding fields. */
+  company_id: string;
+  /**
+   * URL of the brand logo for emails. Distinct from the Factur-X PDF logo.
+   * `null` until set. Fallback: `logo_url` → Scell.io default.
+   */
+  brand_logo_url: string | null;
+  /**
+   * Primary brand color in `#RRGGBB` format (e.g. `"#1A73E8"`).
+   * `null` until set. Used for email button color and section highlights.
+   */
+  brand_primary_color: string | null;
+  /**
+   * Footer text shown at the bottom of all outgoing emails.
+   * Typical content: company name, address, SIRET, legal mentions.
+   * `null` until set.
+   */
+  brand_email_footer: string | null;
+  /**
+   * Email closing signature (e.g. `"L'équipe Société XYZ"`).
+   * `null` until set.
+   */
+  brand_email_signature: string | null;
+  /**
+   * Server-computed flag: `true` when `brand_logo_url`, `brand_primary_color`,
+   * and `brand_email_footer` are all non-null (minimum viable branding).
+   * When `false`, Scell.io default branding is used as fallback.
+   */
+  is_complete: boolean;
+  /**
+   * Fields still missing to reach `is_complete = true`.
+   * Empty array when `is_complete` is `true`.
+   */
+  missing_fields: Array<'brand_logo_url' | 'brand_primary_color' | 'brand_email_footer'>;
+}
+
+/**
+ * Input for updating branding (PATCH /api/v1/tenant/branding or
+ * PATCH /api/v1/sub-tenants/{id}/branding). All fields optional.
+ *
+ * Send only the fields you want to change. Omitted fields are left unchanged.
+ * Set a field to `null` explicitly to clear it (reverts to Scell.io default).
+ *
+ * @since 2.13.0
+ */
+export interface BrandingInput {
+  /**
+   * URL of the brand logo for emails. Must be a publicly accessible HTTPS URL.
+   * Recommended dimensions: 200×60px, PNG or SVG with transparent background.
+   * Set to `null` to clear (reverts to Scell.io default logo).
+   */
+  brand_logo_url?: string | null;
+  /**
+   * Primary brand color in `#RRGGBB` format (e.g. `"#1A73E8"`).
+   * Validated server-side with regex `^#[0-9A-Fa-f]{6}$`.
+   * Set to `null` to clear.
+   */
+  brand_primary_color?: string | null;
+  /**
+   * Footer text for all outgoing emails. Supports plain text only (no HTML).
+   * Typical: "Société XYZ — 12 rue de la République, 75001 Paris — SIRET 123".
+   * Set to `null` to clear.
+   */
+  brand_email_footer?: string | null;
+  /**
+   * Email closing signature. Plain text only.
+   * Example: `"L'équipe Société XYZ"` or `"Service comptabilité XYZ"`.
+   * Set to `null` to clear.
+   */
+  brand_email_signature?: string | null;
+}

@@ -197,6 +197,38 @@ These tools manage existing sub-tenants of the calling tenant. They are scoped s
 | `scell_resume_url` | Regenerate a 7-day signed resume URL for a sub-tenant whose onboarding is not yet `active` |
 | `scell_delete_sub_tenant` | **v2.9.0** Delete a sub-tenant via `DELETE /api/v1/tenant/sub-tenants/{id}`. Optional `cascade: boolean` to drop attached Companies atomically. Returns `{ message, companies_deleted }` on success. Possible 422 codes the LLM should surface clearly: `SUB_TENANT_HAS_COMPANIES` (retry with `cascade=true` after user confirmation) and `SUB_TENANT_HAS_FISCAL_ENTRIES` (refusal — ISCA compliance, no force flag; propose to mark inactive instead). |
 
+### Payment Schedule Tools (since v2.13.0)
+
+These tools manage the échéancier de paiement attached to an accepted quote. An échéancier is a contractual payment plan composed of lines (percent or fixed amount, by due date or milestone text). Lines are immutable once the quote is signed (`accepted`).
+
+| Tool | Description |
+|------|-------------|
+| `scell_set_quote_payment_schedule` | **Create or replace** the full payment schedule of a quote atomically. `POST /api/v1/quotes/{id}/payment-schedule` with `{ lines: PaymentScheduleLineInput[] }`. Blocked if the quote is accepted/converted/cancelled. Returns the full list of `PaymentScheduleLine[]`. |
+| `scell_patch_quote_payment_schedule` | **Partial update** — add, update, or remove schedule lines in a single atomic call. `PATCH /api/v1/quotes/{id}/payment-schedule` with `{ add?, update?, remove? }`. Only `pending` lines can be updated or removed. |
+| `scell_delete_quote_payment_schedule` | **Delete all lines** from a quote's schedule. `DELETE /api/v1/quotes/{id}/payment-schedule`. Only allowed when the quote is in `draft` or `sent` status (no line is `invoiced`). |
+| `scell_get_quote_payment_summary` | **Real-time tracker** of invoiced vs. remaining amounts for a quote with an échéancier. `GET /api/v1/quotes/{id}/payment-summary`. Returns `PaymentSummary` with gross/net invoiced, remaining TTC %, overdue lines, and SuperPDP enrichment per invoice. |
+| `scell_convert_quote_schedule_line_to_deposit` | **Convert a specific pending line** into a deposit invoice. `POST /api/v1/quotes/{id}/payment-schedule/lines/{line_id}/convert`. Optional overrides: `due_date`, `label`, `send_email` (auto-validates and sends). Returns `Invoice` with `invoice_type='deposit'`. |
+| `scell_list_payment_schedule_presets` | **List preset schedules** (e.g. 30/70, 50/50, 30/30/40, 3 monthly instalments). `GET /api/v1/payment-schedule/presets`. Returns `PaymentSchedulePreset[]` with ready-to-use `lines` arrays. Suggest these to users before they create a custom schedule. |
+
+### Invoice Email Tool (since v2.13.0)
+
+| Tool | Description |
+|------|-------------|
+| `scell_send_invoice_by_email` | **Send an invoice to the buyer by email.** `POST /api/v1/invoices/{id}/send-by-email`. Optional overrides: `recipient_email`, `cc[]`, `message`. If the invoice is `draft`, it is automatically validated before sending (equivalent to a `draft → validated` transition). The recipient is resolved in cascade: explicit override → `buyer_billing_email` snapshot → `buyer_email` snapshot → quote buyer email → **422 `BUYER_HAS_NO_EMAIL`** if none. Returns `InvoiceSendByEmailResult` with `sent_to`, `sent_at`, `message_id`, `cc`. |
+
+### Branding Tools (since v2.13.0)
+
+Email branding allows tenants and sub-tenants to customize the logo, primary color, email footer, and signature on all outbound emails (invoice, credit note, quote). When all required fields (`brand_logo_url`, `brand_primary_color`, `brand_email_footer`) are set, the tenant's / sub-tenant's branding replaces the Scell.io default. Otherwise the default branding is used as fallback.
+
+**Important:** `brand_logo_url` is distinct from `logo_url` (the Factur-X PDF logo). `brand_primary_color` must be `#RRGGBB` (6-digit hex, validated server-side).
+
+| Tool | Description |
+|------|-------------|
+| `scell_get_tenant_branding` | Get the current email branding for the master tenant. `GET /api/v1/tenant/branding`. Returns `Branding` with `is_complete` flag and `missing_fields[]`. |
+| `scell_update_tenant_branding` | Update master-tenant email branding fields. `PATCH /api/v1/tenant/branding` with `BrandingInput`. All fields optional; send only what changes. Set to `null` to clear a field. Returns the updated `Branding`. |
+| `scell_get_sub_tenant_branding` | Get email branding for a specific sub-tenant (anti-IDOR scoped). `GET /api/v1/sub-tenants/{id}/branding`. Returns `Branding`. |
+| `scell_update_sub_tenant_branding` | Update email branding for a specific sub-tenant. `PATCH /api/v1/sub-tenants/{id}/branding` with `BrandingInput`. Returns the updated `Branding`. |
+
 ## Example Prompts
 
 Once the MCP server is configured, you can use natural language prompts like:
