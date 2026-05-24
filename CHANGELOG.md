@@ -4,6 +4,64 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.14.0] - 2026-05-24
+
+### Added — 11 nouveaux tools documentés
+
+**Quote actions (5 new)**
+- `scell_regenerate_quote_public_link` — Génère un fresh `public_token`
+  + révoque le précédent. TTL configurable (default 90j, max 365j).
+- `scell_revoke_quote_public_link` — Marque le token comme révoqué
+  (URL viewer retourne 404 immédiat). Idempotent.
+- `scell_get_quote_pdf` — Binaire PDF du devis (Snappy/wkhtmltopdf,
+  branded avec logo + couleur tenant, échéancier + bloc signature).
+- `scell_preview_quote_pdf` — Render PDF depuis payload brut sans
+  persister le devis (preview UI temps réel).
+- `scell_get_quote_audit_log` (déjà documenté) — chaîne SHA-256
+  tamper-evident des transitions.
+
+**Payment Schedule (7 new)**
+- `scell_get_quote_payment_schedule` — Liste les lignes d'échéancier
+  ordonnées (`order` puis `due_date`).
+- `scell_set_quote_payment_schedule` — Remplace l'intégralité de
+  l'échéancier (idempotent). Validation : somme percent ≤ 100% ou
+  somme fixed ≤ total_ttc.
+- `scell_patch_quote_payment_schedule` — Changements ciblés (add /
+  update / remove) sans tout remplacer.
+- `scell_delete_quote_payment_schedule` — Supprime toutes les lignes.
+  Bloqué si une ligne est `invoiced`.
+- `scell_get_quote_payment_summary` — Agrégats + lignes (
+  `schedule`, `invoiced`, `next_due`, `overdue`, `superpdp_status`,
+  `lines: PaymentScheduleLine[]`).
+- `scell_convert_schedule_line_to_invoice` — Génère une facture
+  d'acompte depuis une ligne d'échéancier. Lock automatique.
+- `scell_list_payment_schedule_presets` — Templates 30/70, 50/50,
+  3 jalons, etc. à appliquer via `scell_set_quote_payment_schedule`.
+
+### Type augmenté
+
+- **`PaymentSummary.lines: PaymentScheduleLine[]`** — Nouveau champ
+  exposé par le backend depuis `PaymentSummaryService.summary()`.
+  Permet à l'agent LLM d'afficher le tracker complet sans appel
+  supplémentaire à `GET /payment-schedule`.
+
+### CLI
+
+- `VERSION` cli.ts bumped 2.13.0 → 2.14.0.
+
+## [2.13.1] - 2026-05-24
+
+### Added
+
+- **`CreateQuoteInput.callbackUrl`** + **`UpdateQuoteInput.callbackUrl`**
+  + **`Quote.callbackUrl`** — Le tenant peut fournir une URL de
+  callback à la création du devis. Après acceptation ou refus via le
+  viewer public, le buyer est redirigé vers cette URL avec query
+  string :
+  `?status=signed|refused&quote_id=<UUID>&quote_number=<num>&reason=<txt>`
+- Description du tool `scell_create_quote` enrichie pour mentionner
+  ce nouveau champ.
+
 ## [2.13.0] - 2026-05-21
 
 ### Added
