@@ -2302,6 +2302,14 @@ export interface PaymentSummary {
   overdue: OverdueLine[];
   /** SuperPDP / PEPPOL enrichment for all linked invoices. */
   superpdp_status: PaymentSummaryInvoiceStatus[];
+  /**
+   * Full schedule lines list (since v2.14.0).
+   *
+   * Allows the dashboard/agent to render the complete tracker (all
+   * milestones with status, amounts, due_date) without an additional
+   * GET /payment-schedule call. Ordered by due_date then order.
+   */
+  lines: PaymentScheduleLine[];
 }
 
 /**
