@@ -475,6 +475,13 @@ export interface Quote {
   signature: QuoteSignature | null;
   /** Public signed URL for the buyer to view / accept the quote (90-day TTL) */
   publicUrl: string | null;
+  /**
+   * Callback URL set at creation. After the buyer accepts or refuses
+   * via the public viewer, they are redirected here with query string
+   * `?status=signed|refused&quote_id=...&quote_number=...&reason=...`.
+   * `null` means the buyer lands on the default Scell.io confirmation page.
+   */
+  callbackUrl: string | null;
   /** Total amount excluding tax */
   totalExcludingTax: number;
   /** Total VAT amount */
@@ -542,6 +549,19 @@ export interface CreateQuoteInput {
    * Anti-IDOR: 403 if the sub-tenant does not belong to the API key's tenant.
    */
   sub_tenant_id?: string;
+  /**
+   * Callback URL invoked by the signature viewer after the buyer
+   * accepts or refuses the quote. The buyer is redirected to this URL
+   * via full page navigation with query string:
+   *   `?status=signed|refused&quote_id=<UUID>&quote_number=<num>&reason=<text>`
+   *
+   * Use case: capture the buyer in your own post-signature flow
+   * (thank-you page, client dashboard, automation trigger). When
+   * omitted, the buyer lands on the default Scell.io confirmation page.
+   *
+   * Format: absolute HTTPS URL, max 500 chars.
+   */
+  callbackUrl?: string;
 }
 
 /**
@@ -567,6 +587,12 @@ export interface UpdateQuoteInput {
   buyer?: Company;
   /** Update buyerId (only in draft) */
   buyerId?: string;
+  /**
+   * Update the callback URL (only while the quote is not yet signed).
+   * Pass `null` to clear the callback and revert to the default
+   * Scell.io confirmation page. See `CreateQuoteInput.callbackUrl`.
+   */
+  callbackUrl?: string | null;
 }
 
 /**
