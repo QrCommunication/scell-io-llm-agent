@@ -61,10 +61,10 @@ jobs:
     - name: Resolve release version
       id: version
       run: |
-        if [ "$EVENT_NAME" = "release" ]; then
-          VERSION="${RELEASE_TAG#v}"
-        else
+        if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
           VERSION="$DISPATCH_VERSION"
+        else
+          VERSION="${RELEASE_TAG#v}"
         fi
         if [ -z "$VERSION" ]; then
           echo "::error::No version resolved (release tag or workflow input missing)"
