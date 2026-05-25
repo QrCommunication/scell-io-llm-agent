@@ -1,8 +1,9 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -41,7 +42,6 @@ jobs:
     runs-on: [self-hosted, linux, x64, hetzner, qrcom]
     permissions:
       contents: read
-      id-token: write  # Required for OIDC trusted publishing
     env:
       EVENT_NAME: ${{ github.event_name }}
       DISPATCH_VERSION: ${{ inputs.version }}
@@ -84,4 +84,4 @@ jobs:
       # OIDC Trusted Publishing - no NODE_AUTH_TOKEN needed
       # Provenance is generated automatically
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --access public --provenance=false
