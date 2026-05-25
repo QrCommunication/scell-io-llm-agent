@@ -1,6 +1,77 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.13.0
+Version: 2.16.0
+
+## v2.16.0 (2026-05-25) — InitialsBlock multi-page positions
+
+### Nouvelle fonctionnalité : une position de paraphe par page
+
+Le champ `initialsBlock` de `scell_create_signature` accepte désormais un
+tableau `positions[]` pour définir une position différente par page. Ce format
+prend le dessus sur les anciens champs `position` + `pages` (rétrocompat).
+
+#### Nouveau type : `InitialsPosition`
+
+```typescript
+interface InitialsPosition {
+  page: number;            // page 1-indexée, 1–500
+  x: number;              // coord X dans l'unité définie par unit
+  y: number;              // coord Y dans l'unité définie par unit
+  unit?: 'percent' | 'pixel'; // défaut 'percent'
+  pageWidthPx?: number;   // largeur page @72dpi (fallback A4=595)
+  pageHeightPx?: number;  // hauteur page @72dpi (fallback A4=842)
+  fontSize?: number;      // override police cette page (6–20)
+  color?: string;         // override couleur cette page (#RRGGBB)
+  bold?: boolean;         // override gras cette page
+}
+```
+
+#### Exemple : paraphe en bas à gauche pages impaires, bas à droite pages paires
+
+```json
+{
+  "enabled": true,
+  "positions": [
+    { "page": 1, "x": 5,  "y": 90, "unit": "percent" },
+    { "page": 2, "x": 85, "y": 90, "unit": "percent" },
+    { "page": 3, "x": 5,  "y": 90, "unit": "percent", "color": "#CC0000" }
+  ]
+}
+```
+
+Les pages non listées dans `positions[]` ne reçoivent **pas** de paraphe.
+
+#### Exemple : format legacy (toujours supporté)
+
+```json
+{
+  "enabled": true,
+  "pages": "except_last",
+  "position": { "x": 5, "y": 90, "unit": "percent" }
+}
+```
+
+### Nouveau champ global `bold`
+
+`InitialsBlock.bold` (boolean, défaut `false`) s'applique à toutes les pages.
+Il peut être overridé par page via `InitialsPosition.bold`.
+
+### LLM guidance
+
+- **Préférer `positions[]`** pour tout document multi-pages avec mise en page
+  différente selon les pages (portrait/paysage alternés, marges variables).
+- **Garder `position + pages`** pour les cas simples (même position sur toutes
+  les pages ou un sous-ensemble).
+- Le backend ignore `position` + `pages` si `positions[]` est fourni.
+- Les pages listées dans `positions[]` sont les **seules** à recevoir un paraphe.
+
+### Exports ajoutés
+
+- `InitialsPosition` (interface)
+- `InitialsBlock.positions?: InitialsPosition[]` (champ nouveau)
+- `InitialsBlock.bold?: boolean` (champ nouveau)
+
+---
 
 ## v2.13.0 (2026-05-21) — Payment Schedule + Invoice Send-by-Email + Branding
 

@@ -858,11 +858,115 @@ export interface SignaturePosition {
 }
 
 /**
+ * Position d'un bloc paraphe sur une page specifique.
+ *
+ * Utilise dans le champ `positions[]` d'`InitialsBlock` pour definir une
+ * position differente par page. Format recommande : il prend le dessus sur
+ * les champs legacy `position` + `pages` si fourni.
+ *
+ * - `page`   : numero de page 1-indexe (1–500). Obligatoire.
+ * - `x`, `y` : coordonnees dans l'unite definie par `unit`.
+ * - `unit`   : `'percent'` (defaut, 0–100 relatif a la page) ou `'pixel'`.
+ * - `pageWidthPx` / `pageHeightPx` : dimensions de la page @72dpi ;
+ *   si absentes, le backend detecte via le parser PDF (fallback A4 595×842).
+ * - `fontSize`, `color`, `bold` : overrides visuels par page.
+ *
+ * Exemple — paraphe en bas a gauche de la page 1, en bas a droite page 2 :
+ * ```json
+ * [
+ *   { "page": 1, "x": 5,  "y": 90, "unit": "percent" },
+ *   { "page": 2, "x": 85, "y": 90, "unit": "percent" }
+ * ]
+ * ```
+ *
+ * Correspond a `initials_block.positions[]` (snake_case) dans l'API REST.
+ * Le MCP client expose les champs en camelCase (LLM-friendly).
+ *
+ * @since v2.16.0
+ */
+export interface InitialsPosition {
+  /**
+   * Numero de page (1-indexe, 1–500). Obligatoire.
+   */
+  page: number;
+  /**
+   * Coordonnee X dans l'unite definie par `unit`.
+   * Pour `'percent'` : 0–100 (relatif a la largeur de la page).
+   * Pour `'pixel'`   : valeur absolue @72dpi (0–5000).
+   */
+  x: number;
+  /**
+   * Coordonnee Y dans l'unite definie par `unit`.
+   * Pour `'percent'` : 0–100 (relatif a la hauteur de la page).
+   * Pour `'pixel'`   : valeur absolue @72dpi (0–5000).
+   */
+  y: number;
+  /**
+   * Unite des coordonnees. Defaut : `'percent'`.
+   * - `'percent'` : coordonnees relatives, indépendantes de la resolution.
+   * - `'pixel'`   : coordonnees absolues @72dpi (necessite pageWidthPx/pageHeightPx).
+   */
+  unit?: 'percent' | 'pixel';
+  /**
+   * Largeur de la page en px @72dpi. Recommande pour `unit='pixel'`.
+   * Si absent : detection auto via parser PDF cote backend, fallback A4 (595px).
+   */
+  pageWidthPx?: number;
+  /**
+   * Hauteur de la page en px @72dpi. Recommande pour `unit='pixel'`.
+   * Si absent : detection auto via parser PDF cote backend, fallback A4 (842px).
+   */
+  pageHeightPx?: number;
+  /**
+   * Override de la taille de police pour cette page specifique (6–20 px).
+   * Si absent, utilise la valeur du champ `fontSize` de l'`InitialsBlock` parent.
+   */
+  fontSize?: number;
+  /**
+   * Override de la couleur du texte pour cette page specifique (`#RRGGBB`).
+   * Si absent, utilise la valeur du champ `color` de l'`InitialsBlock` parent.
+   */
+  color?: string;
+  /**
+   * Override du style gras pour cette page specifique.
+   * Si absent, utilise la valeur du champ `bold` de l'`InitialsBlock` parent.
+   */
+  bold?: boolean;
+}
+
+/**
  * Bloc paraphe (initiales) automatique appose sur les pages intermediaires.
  *
  * Quand `enabled` est `true`, Scell.io/OpenAPI.com insere automatiquement
- * les initiales du signataire sur chaque page couverte par `pages`.
- * Les coordonnees sont fournies en `percent` (defaut) ou `pixel`.
+ * les initiales du signataire sur chaque page couverte.
+ *
+ * ## Deux formats possibles (rétrocompatibles)
+ *
+ * ### Format recommande : `positions[]` (depuis v2.16.0)
+ * Permet de definir une position differente par page. Prend le dessus sur
+ * les champs legacy `position` + `pages` si fourni.
+ *
+ * ```json
+ * {
+ *   "enabled": true,
+ *   "positions": [
+ *     { "page": 1, "x": 5,  "y": 90, "unit": "percent" },
+ *     { "page": 2, "x": 85, "y": 90, "unit": "percent" },
+ *     { "page": 3, "x": 5,  "y": 90, "unit": "percent", "fontSize": 10, "color": "#CC0000" }
+ *   ]
+ * }
+ * ```
+ *
+ * ### Format legacy : `position` + `pages`
+ * Une seule position appliquee a toutes les pages listees.
+ *
+ * ```json
+ * {
+ *   "enabled": true,
+ *   "pages": "except_last",
+ *   "position": { "x": 5, "y": 90, "unit": "percent" }
+ * }
+ * ```
  *
  * Correspond au champ `initials_block` (snake_case) de l'API REST.
  * Le MCP client expose les champs en camelCase (LLM-friendly).
@@ -885,13 +989,17 @@ export interface InitialsBlock {
   /** Texte custom des initiales (max 8 caracteres). Utilise si `source === 'custom'`. */
   customText?: string;
   /**
-   * Pages sur lesquelles apposer les initiales.
+   * Pages sur lesquelles apposer les initiales (format legacy).
+   * Ignore si `positions[]` est fourni.
    * - `'all'`         (defaut) : toutes les pages.
    * - `'except_last'`          : toutes sauf la derniere (souvent deja couverte par la signature).
    * - `number[]`               : liste de numeros de pages (1-indexes).
    */
   pages?: 'all' | 'except_last' | number[];
-  /** Position du bloc paraphe sur la page. Coordonnees relatives a la page. */
+  /**
+   * Position commune du bloc paraphe (format legacy).
+   * Ignoree si `positions[]` est fourni. Coordonnees relatives a la page.
+   */
   position?: {
     /** Coordonnee X. Unite definie par `unit`. */
     x: number;
@@ -900,10 +1008,26 @@ export interface InitialsBlock {
     /** Unite des coordonnees. Defaut : `'percent'`. */
     unit?: 'percent' | 'pixel';
   };
-  /** Taille de la police (px). Defaut backend applique si absent. */
+  /**
+   * Positions differentes par page (format recommande depuis v2.16.0).
+   * Si fourni, prend le dessus sur les champs `position` + `pages`.
+   * Chaque entree definit la position de l'initiale sur une page specifique.
+   * Les pages non listees ne recevront PAS de paraphe.
+   *
+   * @since v2.16.0
+   */
+  positions?: InitialsPosition[];
+  /** Taille de la police globale (px, 6–20). Defaut backend applique si absent. */
   fontSize?: number;
   /** Couleur du texte en hexadecimal `#RRGGBB`. Defaut : noir. */
   color?: string;
+  /**
+   * Style gras pour les initiales. Defaut : `false`.
+   * Peut etre override individuellement dans chaque entree de `positions[]`.
+   *
+   * @since v2.16.0
+   */
+  bold?: boolean;
 }
 
 /**

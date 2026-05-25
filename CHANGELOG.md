@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.16.0] - 2026-05-25
+
+### Added — InitialsPosition : positions par page pour les paraphes eIDAS EU-SES
+
+**Nouveau type `InitialsPosition`**
+- Interface TypeScript `InitialsPosition` pour définir la position d'un paraphe
+  sur une page PDF spécifique.
+- Champs : `page` (1-indexed, 1–500), `x`, `y` (0–5000), `unit` (`'percent'` | `'pixel'`, défaut `'percent'`), `pageWidthPx`, `pageHeightPx` (fallback A4), `fontSize` (6–20), `color` (`#RRGGBB`), `bold`.
+
+**Extension de `InitialsBlock`**
+- Nouveau champ `positions?: InitialsPosition[]` — tableau de positions par page.
+  Remplace `position + pages` côté backend si fourni. Les pages absentes du tableau
+  ne reçoivent pas de paraphe.
+- Nouveau champ `bold?: boolean` — mettre les initiales en gras globalement.
+  Peut être surchargé par `InitialsPosition.bold` page par page.
+
+**Compatibilité descendante**
+- Format legacy (`position` + `pages: 'all' | 'except_last' | number[]`) toujours
+  supporté. Si `positions[]` est fourni, il prend la priorité côté backend.
+
+**Tool `scell_create_signature` mis à jour**
+- Description étendue pour documenter les deux formats avec exemples JSON.
+- Correspondances snake_case : `pageWidthPx` → `page_width_px`, `pageHeightPx` → `page_height_px`.
+
+**llms.txt mis à jour**
+- Section `## v2.16.0 (2026-05-25)` avec interface complète, exemples JSON nouveau
+  et legacy, guidance LLM sur quand utiliser chaque format.
+
+### Exports
+- `InitialsPosition` ajouté aux exports publics du package.
+
+---
+
 ## [2.14.0] - 2026-05-24
 
 ### Added — 11 nouveaux tools documentés

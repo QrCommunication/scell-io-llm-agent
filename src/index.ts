@@ -33,6 +33,7 @@ export type {
   SignatureListQuery,
   TenantSignatureListQuery,
   InitialsBlock,
+  InitialsPosition,
   Mention,
   DateBlock,
 
