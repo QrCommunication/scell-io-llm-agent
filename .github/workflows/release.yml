@@ -1,87 +1,83 @@
 name: Release
-
-on:
+true:
   push:
     tags:
-      - 'v*'
+    - v*
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 1.2.0) — only used in workflow_dispatch mode'
+        description: Release version (e.g., 1.2.0) — only used in workflow_dispatch mode
         required: false
         type: string
-
 jobs:
   build-test:
     name: Build and Test
-    runs-on: [self-hosted, linux, x64, hetzner, qrcom]
+    runs-on:
+    - self-hosted
+    - linux
+    - x64
+    - hetzner
+    - qrcom
     permissions:
       contents: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Test
-        run: npm test
-
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: npm
+    - name: Install dependencies
+      run: npm ci
+    - name: Build
+      run: npm run build
+    - name: Test
+      run: npm test
   publish:
     name: Publish to npm
     needs: build-test
-    runs-on: [self-hosted, linux, x64, hetzner, qrcom]
+    runs-on:
+    - self-hosted
+    - linux
+    - x64
+    - hetzner
+    - qrcom
     permissions:
       contents: read
+      id-token: write
     env:
       EVENT_NAME: ${{ github.event_name }}
       DISPATCH_VERSION: ${{ inputs.version }}
       RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Resolve release version
-        id: version
-        run: |
-          if [ "$EVENT_NAME" = "release" ]; then
-            VERSION="${RELEASE_TAG#v}"
-          else
-            VERSION="$DISPATCH_VERSION"
-          fi
-          if [ -z "$VERSION" ]; then
-            echo "::error::No version resolved (release tag or workflow input missing)"
-            exit 1
-          fi
-          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Sync package version with release
-        env:
-          RESOLVED_VERSION: ${{ steps.version.outputs.VERSION }}
-        run: npm version "$RESOLVED_VERSION" --no-git-tag-version --allow-same-version
-
-      - name: Build
-        run: npm run build
-
-      # OIDC Trusted Publishing - no NODE_AUTH_TOKEN needed
-      # Provenance is generated automatically
-      - name: Publish to npm
-        run: npm publish --access public --provenance=false
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        registry-url: https://registry.npmjs.org
+    - name: Resolve release version
+      id: version
+      run: |
+        if [ "$EVENT_NAME" = "release" ]; then
+          VERSION="${RELEASE_TAG#v}"
+        else
+          VERSION="$DISPATCH_VERSION"
+        fi
+        if [ -z "$VERSION" ]; then
+          echo "::error::No version resolved (release tag or workflow input missing)"
+          exit 1
+        fi
+        echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+    - name: Install dependencies
+      run: npm ci
+    - name: Sync package version with release
+      env:
+        RESOLVED_VERSION: ${{ steps.version.outputs.VERSION }}
+      run: npm version "$RESOLVED_VERSION" --no-git-tag-version --allow-same-version
+    - name: Build
+      run: npm run build
+    - name: Publish to npm
+      run: npm publish --access public --provenance=false
