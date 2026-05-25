@@ -785,7 +785,7 @@ export interface SignatureOptions {
 
 /**
  * Personnalisation visuelle de la page de signature (white-label).
- * 21 champs alignes sur la spec OpenAPI.com EU-SES v1.0.17. Les couleurs
+ * 21 champs alignés sur la spec EU-SES certifiée. Les couleurs
  * sont en hexadecimal `#RRGGBB`. Si non fourni, le backend applique le
  * branding par defaut Scell.io.
  */
@@ -937,8 +937,9 @@ export interface InitialsPosition {
 /**
  * Bloc paraphe (initiales) automatique appose sur les pages intermediaires.
  *
- * Quand `enabled` est `true`, Scell.io/OpenAPI.com insere automatiquement
- * les initiales du signataire sur chaque page couverte.
+ * Quand `enabled` est `true`, Scell.io insère automatiquement les initiales
+ * du signataire sur chaque page couverte via son infrastructure de signature
+ * certifiée.
  *
  * ## Deux formats possibles (rétrocompatibles)
  *
