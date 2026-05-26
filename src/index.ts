@@ -118,6 +118,13 @@ export type {
   // Branding types (since 2.13.0)
   Branding,
   BrandingInput,
+
+  // VAT Context Resolution types (since 2.19.0)
+  VatCategory,
+  VatResolution,
+  LineVatContext,
+  VatContextRequest,
+  VatContextResponse,
 } from './types/index.js';
 
 // Export configuration generators

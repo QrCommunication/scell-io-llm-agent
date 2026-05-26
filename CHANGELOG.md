@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.19.0] - 2026-05-26
+
+### Added — `scell_resolve_vat_context` + TVA auto-résolution dans `scell_create_invoice`
+
+#### Nouveau tool : `scell_resolve_vat_context`
+
+Résout le taux et la catégorie TVA applicable à une ligne de facture,
+en tenant compte du profil acheteur (pays, numéro de TVA intracommunautaire,
+B2B / B2C) et du contexte de la ligne (catégorie, lieu de prestation, nature).
+
+- **Endpoint** : `POST /api/v1/tenant/buyers/vat-context`
+- **Auth** : `sk_*` / `pk_*`
+- **Input** : `buyer_id` OU `buyer { country, vatNumber?, isIndividual? }` +
+  `line { category, placeOfSupply?, serviceNature? }`
+- **Output** : `{ resolution: VatResolution, warnings: string[] }`
+
+Cas d'usage principal : l'agent LLM reçoit une demande de facturation B2B
+intracom européen et doit déterminer que le taux applicable est **0 %
+REVERSE_CHARGE** (autoliquidation art. 259-1 CGI) avant de créer la facture.
+
+#### VAT auto-résolution dans `scell_create_invoice` (since 2.19.0)
+
+`lines[].vatRate` est maintenant **optionnel** quand `lines[].category` est
+fourni. Le MCP layer appelle automatiquement `scell_resolve_vat_context` pour
+chaque ligne sans `vatRate`, puis renseigne le taux résolu + les métadonnées
+(`metadata.exemption_reason`, `metadata.category`) avant d'envoyer la requête
+au backend.
+
+Quand `vatRate` **et** `category` sont tous les deux fournis, le `vatRate`
+explicite est respecté tel quel ; `category` est transmis pour la génération
+du nœud Factur-X EN16931, sans appel supplémentaire au resolver.
+
+#### Nouveaux types TypeScript
+
+| Type | Description |
+|---|---|
+| `VatCategory` | Union de 8 catégories TVA EN16931 : `STANDARD`, `INTERMEDIATE`, `REDUCED`, `SUPER_REDUCED`, `ZERO_RATED`, `EXEMPT`, `REVERSE_CHARGE`, `OUT_OF_SCOPE` |
+| `VatResolution` | Résultat du resolver : `rate`, `category`, `en16931Code`, `exemptionReason`, `justification`, `isAutoResolved`, `rule` |
+| `LineVatContext` | Contexte ligne pour le resolver : `category`, `placeOfSupply?`, `serviceNature?` |
+| `VatContextRequest` | Body complet pour `POST /api/v1/tenant/buyers/vat-context` |
+| `VatContextResponse` | Réponse complète : `resolution` + `warnings[]` |
+
+#### Extension de `InvoiceLine`
+
+- `vatRate?: number` — **optionnel** depuis 2.19.0 (était requis). Compatible
+  descendant : les intégrations existantes qui passent `vatRate` continuent de
+  fonctionner sans modification.
+- `category?: VatCategory` — nouveau champ optionnel. Déclenche l'auto-résolution
+  quand `vatRate` est absent.
+
+### Changed
+
+- Compteur de tools : **55 → 57** (`scell_resolve_vat_context` + documentation
+  de l'auto-résolution dans `scell_create_invoice`).
+
 ## [2.18.0] - 2026-05-26
 
 ### Security

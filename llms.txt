@@ -1,6 +1,152 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.17.0
+Version: 2.19.0
+
+## v2.19.0 (2026-05-26) — VAT context resolution + `scell_resolve_vat_context`
+
+### Nouveau tool : résolution du contexte TVA
+
+`scell_resolve_vat_context` interroge l'endpoint
+`POST /api/v1/tenant/buyers/vat-context` pour déterminer le taux et la
+catégorie TVA applicable à une ligne de facture, en tenant compte du profil
+acheteur (pays, numéro TVA intracom, B2B / B2C) et du contexte ligne
+(catégorie, lieu de prestation, nature de service).
+
+#### Interface du tool
+
+```typescript
+// Input
+interface VatContextRequest {
+  buyerId?: string;              // UUID du registre (ou...)
+  buyer?: {                      // ...inline buyer data
+    country: string;             // ISO 3166-1 alpha-2
+    vatNumber?: string;          // 'DE123456789' → B2B intracom
+    isIndividual?: boolean;      // true → B2C
+  };
+  line: {
+    category: VatCategory;       // 'STANDARD' | 'REVERSE_CHARGE' | ...
+    placeOfSupply?: string;      // défaut 'FR'
+    serviceNature?: string|null; // 'conseil informatique', etc.
+  };
+}
+
+// Output
+interface VatContextResponse {
+  resolution: {
+    rate: number;                // 0 | 5.5 | 10 | 20 | 2.1
+    category: VatCategory;       // catégorie résolue (peut différer de l'input)
+    en16931Code: string;         // 'S' | 'AE' | 'E' | 'Z' | 'AA' | 'O'
+    exemptionReason: string|null;// 'Article 261 CGI', null si taxable
+    justification: string|null;  // explication lisible pour l'LLM
+    isAutoResolved: boolean;
+    rule: string|null;           // 'R5_259A_force_seller_country', etc.
+  };
+  warnings: string[];
+}
+```
+
+#### Catégories TVA supportées (`VatCategory`)
+
+| Valeur | Code EN16931 | Taux FR typique | Cas d'usage |
+|---|---|---|---|
+| `STANDARD` | S | 20 % | Service / bien ordinaire FR→FR |
+| `INTERMEDIATE` | AA | 10 % | Restauration, transport, travaux |
+| `REDUCED` | AA | 5.5 % | Alimentation, livres, médicaments |
+| `SUPER_REDUCED` | AA | 2.1 % | Presse, médicaments remboursés |
+| `ZERO_RATED` | Z | 0 % | Export hors-UE, livraison intracom B2C |
+| `EXEMPT` | E | 0 % | Art. 261 CGI (médical, éducation) |
+| `REVERSE_CHARGE` | AE | 0 % | **B2B intracom UE — art. 259-1 CGI** |
+| `OUT_OF_SCOPE` | O | 0 % | Subvention, remboursement, flux non-TVA |
+
+#### Règles LLM — quand appeler `scell_resolve_vat_context`
+
+1. **TOUJOURS** appeler quand le buyer n'est pas français (`country !== 'FR'`)
+   ET possède un `vat_number` → très probablement `REVERSE_CHARGE`.
+2. Appeler avant `scell_create_invoice` quand le taux ne peut pas être
+   déterminé avec certitude (service mixte, lieu de prestation ambigu).
+3. **Toujours** afficher à l'utilisateur le `justification` et
+   l'`exemptionReason` avant de créer la facture.
+4. Quand l'utilisateur dit "B2B intracom", "autoliquidation", "TVA
+   intracommunautaire" ou que le buyer est UE + a un N° TVA → présumer
+   `REVERSE_CHARGE` et confirmer via ce tool.
+
+#### VAT auto-résolution dans `scell_create_invoice`
+
+`InvoiceLine.vatRate` est désormais **optionnel** quand `category` est fourni.
+Le MCP layer appelle `scell_resolve_vat_context` pour chaque ligne où
+`category` est présent et `vatRate` est absent, puis remplit le taux résolu.
+
+```typescript
+// Exemple : LLM fournit category sans vatRate
+const invoice: InvoiceInput = {
+  // ...
+  lines: [
+    {
+      description: 'Conseil informatique B2B intracom',
+      quantity: 1,
+      unitPrice: 5000,
+      category: 'STANDARD',    // vatRate ABSENT → auto-résolu
+      // → le MCP appellera /buyers/vat-context avec buyer.country='DE'
+      //   et obtiendra rate=0, category='REVERSE_CHARGE'
+    },
+  ],
+};
+```
+
+#### Exemple de conversation LLM complet
+
+```
+User: "Crée une facture pour DE Inc (TVA DE123456789) à 1000 € HT,
+       c'est une prestation conseil B2B intracom"
+
+LLM appelle scell_resolve_vat_context :
+  buyer={ country: 'DE', vatNumber: 'DE123456789' }
+  line={ category: 'STANDARD' }
+
+Réponse :
+  resolution.category   = 'REVERSE_CHARGE'
+  resolution.rate       = 0
+  resolution.en16931Code = 'AE'
+  resolution.justification = "Prestation B2B UE, lieu de taxation chez
+    l'acheteur (art. 259-1 CGI) — autoliquidation"
+
+LLM informe l'utilisateur :
+  "Ce service B2B intracommunautaire est soumis à l'autoliquidation
+   (art. 259-1 CGI). TVA 0 % côté vendeur. La mention légale sera
+   ajoutée automatiquement sur la facture."
+
+LLM appelle scell_create_invoice :
+  lines: [{
+    description: 'Conseil informatique',
+    unitPrice: 1000,
+    quantity: 1,
+    vatRate: 0,
+    category: 'REVERSE_CHARGE'
+  }]
+
+Réponse : Facture créée avec mention "autoliquidation art. 259-1 CGI".
+```
+
+### Nouveaux types
+
+- `VatCategory` — union de 8 valeurs
+- `VatResolution` — résultat resolver
+- `LineVatContext` — contexte ligne pour le resolver
+- `VatContextRequest` — body `POST /api/v1/tenant/buyers/vat-context`
+- `VatContextResponse` — réponse complète
+
+### Extension de `InvoiceLine`
+
+- `vatRate?: number` — optionnel depuis 2.19.0 (compatible descendant)
+- `category?: VatCategory` — nouveau champ optionnel
+
+---
+
+## v2.18.0 (2026-05-26) — Security hardening alignment
+
+Voir CHANGELOG.md pour les détails.
+
+---
 
 ## v2.17.0 (2026-05-26) — Multi-document signature bundles
 

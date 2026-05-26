@@ -2,6 +2,15 @@
  * Scell.io MCP Client Type Definitions
  */
 
+// Re-export VAT context types (since 2.19.0)
+export type {
+  VatCategory,
+  VatResolution,
+  LineVatContext,
+  VatContextRequest,
+  VatContextResponse,
+} from './vat.js';
+
 // ============================================================================
 // Configuration Types
 // ============================================================================
@@ -85,6 +94,17 @@ export interface Company {
 
 /**
  * Invoice line item
+ *
+ * @since 2.19.0 — `vatRate` is optional when `category` is provided.
+ * The MCP server (via `scell_create_invoice`) will call
+ * `POST /api/v1/tenant/buyers/vat-context` automatically for each line
+ * where `category` is present and `vatRate` is absent, and fill in the
+ * resolved rate + `metadata.exemption_reason` before forwarding the
+ * request to the backend.
+ *
+ * When both `vatRate` **and** `category` are provided, the explicit
+ * `vatRate` is respected as-is; `category` is still sent for Factur-X
+ * EN16931 tax node generation but no auto-resolution call is made.
  */
 export interface InvoiceLine {
   /** Line description */
@@ -93,8 +113,26 @@ export interface InvoiceLine {
   quantity: number;
   /** Unit price (excluding tax) */
   unitPrice: number;
-  /** VAT rate (percentage, e.g., 20 for 20%) */
-  vatRate: number;
+  /**
+   * VAT rate (percentage, e.g., 20 for 20%).
+   *
+   * **Optional since 2.19.0** — can be omitted when `category` is provided.
+   * In that case, the tool auto-resolves the rate from the buyer's country
+   * and VAT number via `scell_resolve_vat_context` before creating the invoice.
+   * If omitted and `category` is also absent, the backend defaults to 20 %.
+   */
+  vatRate?: number;
+  /**
+   * VAT category hint for auto-resolution (since 2.19.0).
+   *
+   * When provided without `vatRate`, the MCP layer calls
+   * `POST /api/v1/tenant/buyers/vat-context` and populates `vatRate`
+   * automatically. Example: `'STANDARD'` for a domestic service, or
+   * `'REVERSE_CHARGE'` when you know the buyer is a B2B EU entity.
+   *
+   * See `VatCategory` for all allowed values.
+   */
+  category?: import('./vat.js').VatCategory;
   /** Unit of measure (optional) */
   unit?: string;
   /** Product/service code (optional) */
