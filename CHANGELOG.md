@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.18.0] - 2026-05-26
+
+### Security
+- Documentation aligned with Scell.io backend security hardening (audit 2026-05-26).
+- `WebhookPayload<T>` type unchanged — signature verification remains the
+  responsibility of the consumer (use `@scell/sdk` `ScellWebhooks` helper).
+- Note for MCP clients: webhook secrets are now only readable ONCE via
+  `webhooks.create()` / `webhooks.regenerateSecret()`. Subsequent reads
+  return a fingerprint only. Store the secret immediately.
+
+### Changed
+- Bumped peer SDK references in tools doc to mention v2.19.0 (`@scell/sdk`)
+  and v2.17.0 (`scell/sdk` PHP) as recommended companion versions.
+
 ## [2.17.0] - 2026-05-26
 
 ### Added
