@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.17.0] - 2026-05-26
+
+### Added
+
+- `attachments[]` on signature creation tool for multi-document bundles (up to 10 attachments).
+- `documentIndex` on signature positions, mentions, and initials positions to target a specific document.
+- New `SignatureAttachment` schema/type.
+
 ## [2.16.1] - 2026-05-25
 
 ### Changed

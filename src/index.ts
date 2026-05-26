@@ -29,6 +29,7 @@ export type {
   // Signature types
   Signer,
   SignatureInput,
+  SignatureAttachment,
   SignatureRequest,
   SignatureListQuery,
   TenantSignatureListQuery,

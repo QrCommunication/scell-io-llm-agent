@@ -1,6 +1,99 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.16.0
+Version: 2.17.0
+
+## v2.17.0 (2026-05-26) — Multi-document signature bundles
+
+### Nouvelle fonctionnalité : signature de plusieurs PDF en une seule demande
+
+Le tool `scell_create_signature` accepte désormais un champ optionnel
+`attachments[]` qui permet de joindre des documents supplémentaires (PJ)
+au document principal. Le backend merge automatiquement le document
+principal et tous les attachments en un seul PDF signable avant
+soumission à l'autorité de signature partenaire.
+
+#### Nouveau type : `SignatureAttachment`
+
+```typescript
+interface SignatureAttachment {
+  document: string;       // contenu PDF base64
+  documentName: string;   // nom de fichier avec extension `.pdf`
+}
+```
+
+Mappé en snake_case côté backend : `documentName` → `document_name`.
+
+#### Nouveau champ : `documentIndex` sur les 3 types de positions
+
+Les `signature_positions[]`, `mentions[].position` et
+`initialsBlock.positions[]` reçoivent un champ optionnel `documentIndex`
+pour cibler un document spécifique au sein du bundle :
+
+- `documentIndex: 0` → document principal (`SignatureInput.document`,
+  comportement par défaut quand le champ est absent)
+- `documentIndex: N` → `attachments[N - 1]` (1-indexed sur les PJ)
+
+Valeurs acceptées : `0..10`. Mappé en snake_case côté backend :
+`documentIndex` → `document_index`.
+
+#### Limites backend
+
+- **10 attachments max** par demande de signature.
+- **20 Mo cumulés** (document principal + PJ).
+- Chaque attachment doit être un PDF valide encodé en base64.
+
+#### Exemple : contrat + 2 annexes
+
+```typescript
+const input: SignatureInput = {
+  title: 'Contrat de prestation + annexes',
+  document: mainContractBase64,
+  document_name: 'contrat.pdf',
+  attachments: [
+    { document: annexAPdfBase64, documentName: 'annexe-A.pdf' },
+    { document: annexBPdfBase64, documentName: 'annexe-B.pdf' },
+  ],
+  signers: [
+    {
+      first_name: 'Jean',
+      last_name: 'Dupont',
+      email: 'jean.dupont@example.com',
+      auth_method: 'email',
+    },
+  ],
+  signature_positions: [
+    // Signature sur le contrat principal (page 3, bas gauche)
+    { documentIndex: 0, page: 3, x: 10, y: 80, unit: 'percent' },
+    // Signature sur la deuxième annexe (page 1, bas gauche)
+    { documentIndex: 2, page: 1, x: 10, y: 80, unit: 'percent' },
+  ],
+};
+```
+
+### LLM guidance
+
+- **Préférer un seul document** (sans `attachments`) quand tout le
+  contenu tient dans un PDF unique : plus simple, moins d'erreurs de
+  `documentIndex`, payload plus léger.
+- **Utiliser `attachments[]`** quand le contrat principal référence
+  des annexes (CGV, conditions, plans, etc.) qui doivent être
+  juridiquement opposables au signataire.
+- Toujours mettre les pages/positions de signature critiques sur le
+  document principal (`documentIndex: 0` ou absent) ; les attachments
+  servent surtout à transporter les pièces jointes signées en bundle.
+- Vérifier les limites côté payload : 10 attachments max, 20 Mo total
+  cumulés (principal + PJ). Côté SDK, base64 ≈ 33% de surcoût sur
+  la taille binaire.
+
+### Exports ajoutés
+
+- `SignatureAttachment` (interface)
+- `SignatureInput.attachments?: SignatureAttachment[]` (champ nouveau)
+- `SignaturePosition.documentIndex?: number` (champ nouveau)
+- `Mention.position.documentIndex?: number` (champ nouveau)
+- `InitialsPosition.documentIndex?: number` (champ nouveau)
+
+---
 
 ## v2.16.0 (2026-05-25) — InitialsBlock multi-page positions
 

@@ -833,6 +833,19 @@ export interface SignatureUIConfig {
  * Position d'une zone de signature visuelle sur le document.
  */
 export interface SignaturePosition {
+  /**
+   * Index du document cible (0 = principal, 1..N = attachments dans
+   * l'ordre du tableau `SignatureInput.attachments`).
+   *
+   * Defaut : `0` (document principal). Utilise uniquement quand le
+   * payload contient des `attachments`. Valeurs acceptees : `0..10`.
+   *
+   * Le MCP server consuming this client config mappe ce champ vers
+   * `document_index` (snake_case) avant POST `/api/v1/signatures`.
+   *
+   * @since v2.17.0
+   */
+  documentIndex?: number;
   /** Numero de page (1-indexe). */
   page: number;
   /** Coordonnee X. Unite definie par `unit`. */
@@ -885,6 +898,19 @@ export interface SignaturePosition {
  * @since v2.16.0
  */
 export interface InitialsPosition {
+  /**
+   * Index du document cible (0 = principal, 1..N = attachments dans
+   * l'ordre du tableau `SignatureInput.attachments`).
+   *
+   * Defaut : `0` (document principal). Utilise uniquement quand le
+   * payload contient des `attachments`. Valeurs acceptees : `0..10`.
+   *
+   * Le MCP server consuming this client config mappe ce champ vers
+   * `document_index` (snake_case) avant POST `/api/v1/signatures`.
+   *
+   * @since v2.17.0
+   */
+  documentIndex?: number;
   /**
    * Numero de page (1-indexe, 1–500). Obligatoire.
    */
@@ -1050,6 +1076,19 @@ export interface Mention {
   signerIndex?: number;
   /** Position de la mention sur la page. */
   position: {
+    /**
+     * Index du document cible (0 = principal, 1..N = attachments dans
+     * l'ordre du tableau `SignatureInput.attachments`).
+     *
+     * Defaut : `0` (document principal). Utilise uniquement quand le
+     * payload contient des `attachments`. Valeurs acceptees : `0..10`.
+     *
+     * Le MCP server consuming this client config mappe ce champ vers
+     * `document_index` (snake_case) avant POST `/api/v1/signatures`.
+     *
+     * @since v2.17.0
+     */
+    documentIndex?: number;
     /** Numero de page (1-indexe). */
     page: number;
     /** Coordonnee X. */
@@ -1146,6 +1185,59 @@ export interface Signer {
 }
 
 /**
+ * Document attache (PJ) en plus du document principal d'une demande
+ * de signature EU-SES.
+ *
+ * Le backend Scell.io merge automatiquement le document principal
+ * (`SignatureInput.document`) et tous les `attachments` en un seul PDF
+ * avant submission a l'autorite de signature partenaire. Les positions
+ * de signature, paraphes et mentions peuvent cibler un document via
+ * le champ `documentIndex` :
+ *
+ * - `documentIndex: 0` → document principal (defaut)
+ * - `documentIndex: N` → `attachments[N - 1]` (1-indexed sur les PJ)
+ *
+ * ## Limites backend
+ *
+ * - Maximum **10 attachments** par demande.
+ * - Maximum **20 Mo cumules** (principal + PJ).
+ * - Chaque attachment doit etre un PDF valide encode en base64.
+ *
+ * Correspond au champ `attachments` (array snake_case) de l'API REST.
+ *
+ * @example
+ * ```typescript
+ * const input: SignatureInput = {
+ *   title: 'Contrat + annexes',
+ *   document: mainContractBase64,
+ *   document_name: 'contrat.pdf',
+ *   attachments: [
+ *     { document: annexAPdfBase64, documentName: 'annexe-A.pdf' },
+ *     { document: annexBPdfBase64, documentName: 'annexe-B.pdf' },
+ *   ],
+ *   signers: [ ... ],
+ *   signature_positions: [
+ *     { documentIndex: 0, page: 1, x: 10, y: 80 }, // sur le contrat
+ *     { documentIndex: 2, page: 1, x: 10, y: 80 }, // sur annexe-B
+ *   ],
+ * };
+ * ```
+ *
+ * @since v2.17.0
+ */
+export interface SignatureAttachment {
+  /** Contenu du document attache encode en base64. */
+  document: string;
+  /**
+   * Nom de fichier (avec extension `.pdf`).
+   *
+   * Le MCP server consuming this client config mappe ce champ vers
+   * `document_name` (snake_case) avant POST `/api/v1/signatures`.
+   */
+  documentName: string;
+}
+
+/**
  * Input pour la creation d'une demande de signature EU-SES.
  *
  * Tous les champs `ui_config` et `signature_options` sont optionnels.
@@ -1162,6 +1254,31 @@ export interface SignatureInput {
   document: string;
   /** Nom du fichier (ex: `'contrat.pdf'`). */
   document_name: string;
+  /**
+   * Documents attaches (PJ) — facultatif.
+   *
+   * Le backend merge automatiquement le document principal (`document`)
+   * et tous les `attachments` en un seul PDF avant submission a
+   * l'autorite de signature partenaire. Les `signature_positions`,
+   * `initialsBlock.positions` et `mentions[].position` peuvent cibler
+   * un document specifique via leur champ `documentIndex` :
+   *
+   * - `documentIndex: 0` → document principal (defaut)
+   * - `documentIndex: N` → `attachments[N - 1]`
+   *
+   * Limites : **10 attachments max**, **20 Mo cumules** (principal + PJ).
+   *
+   * @example
+   * ```typescript
+   * attachments: [
+   *   { document: annexAPdfBase64, documentName: 'annexe-A.pdf' },
+   *   { document: annexBPdfBase64, documentName: 'annexe-B.pdf' },
+   * ]
+   * ```
+   *
+   * @since v2.17.0
+   */
+  attachments?: SignatureAttachment[];
   /** Liste de 1 a 10 signataires. */
   signers: SignerInput[];
   /** Positions visuelles des zones de signature. */

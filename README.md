@@ -123,7 +123,7 @@ Once configured, your AI assistant will have access to these tools:
 
 | Tool | Description |
 |------|-------------|
-| `scell_create_signature` | Create a new signature request. Optional `sub_tenant_id` in the payload scopes the request to a sub-tenant of the calling tenant (anti-IDOR enforced server-side). |
+| `scell_create_signature` | Create a new signature request. Optional `sub_tenant_id` in the payload scopes the request to a sub-tenant of the calling tenant (anti-IDOR enforced server-side). **v2.17.0:** supports multi-document bundles via the optional `attachments[]` array (max 10 PJ, 20 Mo cumulated) — signature positions, mentions and initials positions can target a specific document via `documentIndex` (0 = main document, 1..N = attachment N). |
 | `scell_get_signature` | Get signature request status and details |
 | `scell_list_signatures` | List signature requests (`GET /api/v1/signatures`, tenant-scoped via the API key). Filters: `status`, `environment`, `sub_tenant_id`, `page`, `per_page`. The legacy `company_id` filter was removed in the 2026-05-11 backend refonte (`api_keys.company_id` dropped). |
 | `scell_tenant_list_signatures` | **v2.7.0** List signatures for the whole tenant via URL-nested `GET /api/v1/tenant/signatures`. Auth: `sk_*`. Filters: `status`, `environment`, `page`, `per_page`. |
@@ -263,6 +263,32 @@ Send to john.doe@example.com for signature."
 "Send a reminder for all pending signature requests older than 7 days"
 ```
 
+#### Multi-document signature (since v2.17.0)
+
+```typescript
+// Bundle a contract + 2 annexes in a single signature request.
+// The backend merges them into a single signable PDF before submission.
+const input: SignatureInput = {
+  title: 'Contrat de prestation + annexes',
+  document: mainContractBase64,
+  document_name: 'contrat.pdf',
+  attachments: [
+    { document: annexAPdfBase64, documentName: 'annexe-A.pdf' },
+    { document: annexBPdfBase64, documentName: 'annexe-B.pdf' },
+  ],
+  signers: [
+    { first_name: 'Jean', last_name: 'Dupont',
+      email: 'jean.dupont@example.com', auth_method: 'email' },
+  ],
+  signature_positions: [
+    // Signature on the main contract (last page)
+    { documentIndex: 0, page: 3, x: 10, y: 80, unit: 'percent' },
+    // Signature on the second annex (Annex B)
+    { documentIndex: 2, page: 1, x: 10, y: 80, unit: 'percent' },
+  ],
+};
+```
+
 ### Fiscal Compliance Examples
 
 ```
@@ -353,6 +379,7 @@ import type {
   // Signatures
   Signer,
   SignatureInput,
+  SignatureAttachment,
   SignatureRequest,
 
   // Results
