@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.20.0] - 2026-05-27
+
+### Added — `parentQuoteId` + `invoiceType` on `InvoiceInput`
+
+The backend now supports `parent_quote_id` on `POST /api/v1/invoices` for
+**standard** invoices (`invoice_type='standard'`), in addition to the
+existing support for deposit / balance invoices (which are typically
+generated via `scell_convert_quote_to_deposit` /
+`scell_convert_quote_to_balance`).
+
+This enables tracking a standalone invoice that originated from a
+commercial quote — without going through the deposit/balance conversion
+flow — for traceability and reporting.
+
+#### New `InvoiceInput` fields (camelCase, both optional)
+
+| Field | Type | Description |
+|---|---|---|
+| `invoiceType` | `'standard' \| 'deposit' \| 'balance'` | Defaults to `'standard'` when omitted. |
+| `parentQuoteId` | `string` (UUID) | Optional link to a source quote. Only valid for `'standard'` invoices when set explicitly — for deposit/balance, use the dedicated conversion tools. |
+
+The MCP server consuming this client config maps camelCase → snake_case
+before `POST /api/v1/invoices`:
+
+- `parentQuoteId` → `parent_quote_id`
+- `invoiceType` → `invoice_type`
+
+#### Tool description update
+
+`scell_create_invoice` description now explicitly documents the v2.20.0
+behavior: `parent_quote_id` is valid for `invoice_type='standard'` (the
+default), enabling LLMs to track quote-originated invoices without going
+through the conversion flow. Anti-IDOR: the API returns 403 if the quote
+does not belong to the tenant resolved from the `X-API-Key` header.
+
+### Compat
+
+- Fully backward compatible: both fields are optional. Existing
+  integrations that did not pass `invoiceType` or `parentQuoteId`
+  continue to work as before (backend defaults to `'standard'` and
+  `parent_quote_id = NULL`).
+
 ## [2.19.0] - 2026-05-26
 
 ### Added — `scell_resolve_vat_context` + TVA auto-résolution dans `scell_create_invoice`

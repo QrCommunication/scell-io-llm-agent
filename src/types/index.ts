@@ -202,6 +202,35 @@ export interface InvoiceInput {
    * Available since `@scell/mcp-client` v2.8.0.
    */
   sub_tenant_id?: string;
+  /**
+   * Invoice type: standard (default), deposit (acompte) or balance (solde).
+   *
+   * - `'standard'` (default): regular invoice, optionally linked to a
+   *   source quote via `parentQuoteId` for traceability (since v2.20.0).
+   * - `'deposit'`: partial-payment invoice — typically generated from a
+   *   quote via `scell_convert_quote_to_deposit`.
+   * - `'balance'`: final settlement invoice — typically generated from a
+   *   quote via `scell_convert_quote_to_balance`.
+   *
+   * When omitted, the backend defaults to `'standard'`.
+   *
+   * Available since `@scell/mcp-client` v2.20.0.
+   */
+  invoiceType?: 'standard' | 'deposit' | 'balance';
+  /**
+   * Optional UUID of a source quote — links the invoice to a quote for
+   * traceability. Only valid for `invoiceType === 'standard'` invoices.
+   *
+   * For `'deposit'` / `'balance'` invoices, use the dedicated conversion
+   * tools (`scell_convert_quote_to_deposit` / `scell_convert_quote_to_balance`)
+   * which set `parent_quote_id` automatically.
+   *
+   * Anti-IDOR: the API returns 403 if the quote does not belong to the
+   * tenant resolved from the `X-API-Key` header.
+   *
+   * Available since `@scell/mcp-client` v2.20.0.
+   */
+  parentQuoteId?: string;
 }
 
 /**
