@@ -470,20 +470,34 @@ export interface Invoice {
 /**
  * Quote (devis) status lifecycle.
  *
+ * Aligned with the backend `App\Enums\Quote\QuoteStatus` (8 values) since
+ * v2.22.0.
+ *
  * ```
- * DRAFT → SENT → ACCEPTED → (deposit + balance invoices)
- *               ↘ REFUSED
- * DRAFT | SENT → CANCELLED
- * ACCEPTED     → CONVERTED  (when at least one invoice was generated)
+ * DRAFT → SENT → VIEWED → ACCEPTED → CONVERTED  (after deposit/balance invoices)
+ *                       ↘ REFUSED
+ *                       ↘ EXPIRED  (passed validity_date without decision)
+ * DRAFT | SENT | VIEWED → CANCELLED
  * ```
+ *
+ * - `draft` — Editing, not yet sent to the buyer.
+ * - `sent` — Public link emitted, awaiting buyer action.
+ * - `viewed` — Buyer opened the public viewer at least once.
+ * - `accepted` — Buyer signed; quote is now binding.
+ * - `refused` — Buyer refused with a reason string.
+ * - `expired` — `validity_date` passed without buyer decision.
+ * - `converted` — At least one invoice (deposit or balance) was generated.
+ * - `cancelled` — Tenant cancelled (with mandatory reason) before acceptance.
  */
 export type QuoteStatus =
   | 'draft'
   | 'sent'
+  | 'viewed'
   | 'accepted'
   | 'refused'
-  | 'cancelled'
-  | 'converted';
+  | 'expired'
+  | 'converted'
+  | 'cancelled';
 
 /**
  * A single line item of a quote. Mirrors InvoiceLine but belongs to
@@ -796,8 +810,33 @@ export interface ConvertToBalanceInput {
 // Credit Note Types
 // ============================================================================
 
-/** Credit note status */
+/**
+ * Credit note status.
+ *
+ * Backend canonical values (`credit_notes.status` CHECK constraint, since v2.22.0):
+ * - `'draft'` — Editing, not yet validated.
+ * - `'sent'` — Issued (immutable on the ISCA ledger). Triggers
+ *   `CreditNoteObserver` to compute `Invoice.refund_status` / `total_refunded`.
+ *
+ * The `'cancelled'` value is preserved in the union for backwards compatibility
+ * with SDK consumers ≤ v2.21.0 but is **not** a valid backend state.
+ *
+ * @see CreditNoteType
+ */
 export type CreditNoteStatus = 'draft' | 'sent' | 'cancelled';
+
+/**
+ * Credit note type — partial vs total credit against the parent invoice.
+ *
+ * Aligned with the backend `credit_notes.type` CHECK constraint since v2.22.0.
+ *
+ * - `'partial'` — credit only a subset of the invoice lines or a reduced amount.
+ *   Pairs with `Invoice.refund_status='partial'` on the parent invoice once
+ *   the credit note transitions to `status='sent'`.
+ * - `'total'` — credit the full invoice. Pairs with `Invoice.refund_status='full'`
+ *   and `Invoice.status='refunded'`.
+ */
+export type CreditNoteType = 'partial' | 'total';
 
 /**
  * Credit note line item
@@ -2850,3 +2889,249 @@ export interface BrandingInput {
    */
   brand_email_signature?: string | null;
 }
+
+// ============================================================================
+// Backend Enum Mirrors (since v2.22.0)
+// ============================================================================
+//
+// String unions aligned exactly with the backend `App\Enums\*` PHP enums
+// and PostgreSQL CHECK constraints. Surface them in tool descriptions so the
+// LLM can enumerate the legal filter values for `status` / `type` /
+// `archive_status` query parameters.
+//
+// Every enum here mirrors a backend source of truth — keep the values
+// alphabetically aligned with the backend `case` order. Adding a value here
+// is a non-breaking change for consumers, removing one is a major bump.
+
+/**
+ * Invoice template kind — what document family this template can decorate.
+ *
+ * Aligned with `App\Enums\Invoice\InvoiceTemplateKind`.
+ *
+ * - `'invoice'` — usable on standard invoices (and deposit/balance invoices).
+ * - `'quote'` — usable on quotes (devis) only.
+ * - `'both'` — universal template that can be applied to invoices AND quotes.
+ *
+ * @since 2.22.0
+ */
+export type InvoiceTemplateKind = 'invoice' | 'quote' | 'both';
+
+/**
+ * Invoice type — distinguishes standard, deposit (acompte) and balance (solde)
+ * invoices.
+ *
+ * Aligned with `App\Enums\Invoice\InvoiceType`. Already present on
+ * `InvoiceInput.invoiceType` since v2.20.0; this is the canonical union name.
+ *
+ * - `'standard'` — Regular invoice (Factur-X type code 380).
+ * - `'deposit'` — Acompte (type code 386). VAT immediately exigible
+ *   (CGI art. 289). Factur-X partial invoice.
+ * - `'balance'` — Solde final (type code 380). Factur-X final invoice.
+ *   Auto-deducts already-emitted deposit invoices via BG-22 code `80`.
+ *
+ * @since 2.22.0
+ */
+export type InvoiceType = 'standard' | 'deposit' | 'balance';
+
+/**
+ * Payment schedule line amount type — backend canonical name.
+ *
+ * Re-exported as an alias of {@link PaymentScheduleAmountType} (already
+ * defined since v2.13.0) to match `App\Enums\Quote\PaymentScheduleLineAmountType`.
+ *
+ * @since 2.22.0
+ */
+export type PaymentScheduleLineAmountType = PaymentScheduleAmountType;
+
+/**
+ * Sub-tenant onboarding status — backend canonical name alias.
+ *
+ * Re-exported as an alias of {@link OnboardingStatus} (already defined since
+ * v2.8.0) to match `App\Enums\SubTenantOnboardingStatus`.
+ *
+ * 6 values: `pending_superpdp`, `superpdp_redirected`, `superpdp_authorized`,
+ * `superpdp_pending_review`, `active`, `superpdp_failed`.
+ *
+ * @since 2.22.0
+ */
+export type SubTenantOnboardingStatus = OnboardingStatus;
+
+/**
+ * Quote audit log action — every tamper-evident entry of a quote's lifecycle
+ * is tagged with one of these 21 actions.
+ *
+ * Aligned with `App\Enums\Quote\QuoteAuditAction`. Returned by
+ * `scell_get_quote_audit_log` inside `QuoteAuditEntry.action`.
+ *
+ * Each entry carries a `chainHash` (SHA-256) linking to the previous entry,
+ * providing legal proof of every state transition.
+ *
+ * @since 2.22.0
+ */
+export type QuoteAuditAction =
+  | 'created'
+  | 'updated'
+  | 'line_added'
+  | 'line_removed'
+  | 'line_updated'
+  | 'buyer_changed'
+  | 'sent'
+  | 'resent'
+  | 'viewed'
+  | 'signed'
+  | 'accepted'
+  | 'refused'
+  | 'cancelled'
+  | 'expired'
+  | 'converted'
+  | 'public_link_regenerated'
+  | 'public_link_revoked'
+  | 'duplicated'
+  | 'deposit_generated_from_schedule'
+  | 'schedule_updated'
+  | 'schedule_deleted';
+
+/**
+ * Signature archive status — long-term archival lifecycle of the signed PDF.
+ *
+ * Aligned with the backend `signatures.archive_status` PostgreSQL CHECK
+ * constraint (4 values).
+ *
+ * - `'pending'` — Archival queued, signed PDF not yet pushed to S3 Glacier.
+ * - `'archived'` — Successfully archived (S3 Object Lock + Glacier deep tier).
+ * - `'glacier'` — Transitioned to Glacier Deep Archive (retrieval ~12h).
+ * - `'error'` — Archival failed; manual re-archive required.
+ *
+ * @since 2.22.0
+ */
+export type SignatureArchiveStatus = 'pending' | 'archived' | 'glacier' | 'error';
+
+/**
+ * Invoice archive status — long-term archival lifecycle of the Factur-X PDF/A.
+ *
+ * Aligned with the backend `invoices.archive_status` PostgreSQL CHECK
+ * constraint (4 values). Same lifecycle as {@link SignatureArchiveStatus}.
+ *
+ * - `'pending'` — Archival queued, Factur-X PDF/A not yet pushed to long-term
+ *   storage.
+ * - `'archived'` — Successfully archived (S3 Object Lock COMPLIANCE, 11 years).
+ * - `'glacier'` — Transitioned to Glacier Deep Archive.
+ * - `'error'` — Archival failed; manual re-archive required.
+ *
+ * @since 2.22.0
+ */
+export type InvoiceArchiveStatus = 'pending' | 'archived' | 'glacier' | 'error';
+
+/**
+ * Tenant KYB (Know Your Business) lifecycle — 5-step verification of the
+ * master tenant (legal entity behind a Scell.io account).
+ *
+ * Aligned with the backend `Tenant::KYB_STATUS_*` constants.
+ *
+ * Required transition for `'kyb_status === verified'` before issuing
+ * production B2B invoices through PEPPOL (CGI art. 289 conformity).
+ *
+ * - `'pending'` — Account created, no KYB documents yet.
+ * - `'documents_submitted'` — Documents uploaded by the tenant.
+ * - `'under_review'` — Internal compliance review in progress.
+ * - `'verified'` — KYB green-lit; tenant can issue PEPPOL invoices.
+ * - `'rejected'` — KYB refused with a `kyb_rejection_reason`.
+ *
+ * @since 2.22.0
+ */
+export type TenantKybStatus =
+  | 'pending'
+  | 'documents_submitted'
+  | 'under_review'
+  | 'verified'
+  | 'rejected';
+
+/**
+ * Company status — KYC lifecycle of a company entity (issuer or sub-tenant
+ * company).
+ *
+ * Aligned with the backend `companies.status` PostgreSQL CHECK constraint.
+ *
+ * - `'pending_kyc'` — Company created, KYC documents not yet submitted /
+ *   validated. Cannot issue production invoices.
+ * - `'active'` — KYC validated; company can issue invoices.
+ * - `'suspended'` — Manually suspended (e.g. compliance flag, billing issue).
+ *
+ * @since 2.22.0
+ */
+export type CompanyStatus = 'pending_kyc' | 'active' | 'suspended';
+
+/**
+ * API key status — lifecycle of an `sk_*` / `pk_*` API key.
+ *
+ * Aligned with the backend `api_keys.status` PostgreSQL CHECK constraint.
+ *
+ * - `'active'` — Key is operational and accepted by the API gateway.
+ * - `'revoked'` — Key was explicitly revoked. All API calls return
+ *   401 INVALID_API_KEY.
+ *
+ * @since 2.22.0
+ */
+export type ApiKeyStatus = 'active' | 'revoked';
+
+/**
+ * Tenant billing invoice status — lifecycle of a Scell.io platform invoice
+ * (i.e. invoices that Scell.io issues to its tenants for top-ups, pack
+ * purchases, monthly usage). Distinct from end-user invoices issued by the
+ * tenant.
+ *
+ * Aligned with the backend `tenant_invoices.status` PostgreSQL CHECK constraint.
+ *
+ * - `'draft'` — Internal placeholder; not yet visible to the tenant.
+ * - `'sent'` — Visible in the tenant billing dashboard, payable via Stripe.
+ * - `'paid'` — Stripe PaymentIntent succeeded; balance credited.
+ * - `'overdue'` — Past `due_date` without payment.
+ * - `'cancelled'` — Voided (e.g. duplicate invoice, billing error).
+ *
+ * @since 2.22.0
+ */
+export type TenantInvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+
+/**
+ * Tenant ledger transaction type — direction of a balance ledger entry.
+ *
+ * Aligned with the backend `tenant_transactions.type` PostgreSQL CHECK
+ * constraint.
+ *
+ * - `'credit'` — Increases the tenant balance (top-up, pack purchase,
+ *   refund of a failed invoice transmission).
+ * - `'debit'` — Decreases the tenant balance (invoice transmission fee,
+ *   signature request fee, monthly subscription debit).
+ *
+ * @since 2.22.0
+ */
+export type TenantTransactionType = 'debit' | 'credit';
+
+/**
+ * Onboarding session status — lifecycle of a partner-led onboarding flow
+ * (publishable key initiated, e.g. via the `<scell-onboarding>` widget).
+ *
+ * Aligned with the backend `OnboardingSession::STATUS_*` constants (9 values).
+ *
+ * - `'initiated'` — Session created, no buyer interaction yet.
+ * - `'siret_verified'` — INSEE / Etalab lookup succeeded; legal identity known.
+ * - `'vat_verified'` — VIES VAT number cross-check passed (EU intra-community).
+ * - `'documents_pending'` — Buyer was prompted to upload KYB documents.
+ * - `'documents_submitted'` — Buyer uploaded the requested documents.
+ * - `'under_review'` — Internal compliance review in progress.
+ * - `'completed'` — Sub-tenant successfully provisioned and active.
+ * - `'failed'` — Onboarding failed (KYB rejected, lookup error, timeout).
+ * - `'expired'` — Session passed its TTL without buyer completion.
+ *
+ * @since 2.22.0
+ */
+export type OnboardingSessionStatus =
+  | 'initiated'
+  | 'siret_verified'
+  | 'vat_verified'
+  | 'documents_pending'
+  | 'documents_submitted'
+  | 'under_review'
+  | 'completed'
+  | 'failed'
+  | 'expired';

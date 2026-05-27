@@ -4,6 +4,80 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.22.0] - 2026-05-27
+
+### Added — Full backend enum mirror coverage + tool description enrichments
+
+Following v2.21.0 (which only covered `InvoiceStatus`), this release ships
+the **complete set of backend string-union mirrors** so the MCP layer can
+enumerate legal filter values to the LLM at runtime.
+
+#### New exported types (15)
+
+All aligned 1:1 with the backend source of truth (`App\Enums\*` PHP enums
+or PostgreSQL CHECK constraints):
+
+| Type | Values | Backend reference |
+|---|---|---|
+| `InvoiceTemplateKind` | `'invoice' \| 'quote' \| 'both'` | `App\Enums\Invoice\InvoiceTemplateKind` |
+| `InvoiceType` | `'standard' \| 'deposit' \| 'balance'` | `App\Enums\Invoice\InvoiceType` |
+| `PaymentScheduleLineAmountType` | alias of `PaymentScheduleAmountType` (`'percent' \| 'amount'`) | `App\Enums\Quote\PaymentScheduleLineAmountType` |
+| `SubTenantOnboardingStatus` | alias of `OnboardingStatus` (6 values) | `App\Enums\SubTenantOnboardingStatus` |
+| `QuoteAuditAction` | 21 values — `'created'`, `'updated'`, `'line_added'`, `'line_removed'`, `'line_updated'`, `'buyer_changed'`, `'sent'`, `'resent'`, `'viewed'`, `'signed'`, `'accepted'`, `'refused'`, `'cancelled'`, `'expired'`, `'converted'`, `'public_link_regenerated'`, `'public_link_revoked'`, `'duplicated'`, `'deposit_generated_from_schedule'`, `'schedule_updated'`, `'schedule_deleted'` | `App\Enums\Quote\QuoteAuditAction` |
+| `CreditNoteType` | `'partial' \| 'total'` | `credit_notes.type` CHECK |
+| `SignatureArchiveStatus` | `'pending' \| 'archived' \| 'glacier' \| 'error'` | `signatures.archive_status` CHECK |
+| `InvoiceArchiveStatus` | `'pending' \| 'archived' \| 'glacier' \| 'error'` | `invoices.archive_status` CHECK |
+| `TenantKybStatus` | `'pending' \| 'documents_submitted' \| 'under_review' \| 'verified' \| 'rejected'` | `Tenant::KYB_STATUS_*` |
+| `CompanyStatus` | `'pending_kyc' \| 'active' \| 'suspended'` | `companies.status` CHECK |
+| `ApiKeyStatus` | `'active' \| 'revoked'` | `api_keys.status` CHECK |
+| `TenantInvoiceStatus` | `'draft' \| 'sent' \| 'paid' \| 'overdue' \| 'cancelled'` | `tenant_invoices.status` CHECK |
+| `TenantTransactionType` | `'debit' \| 'credit'` | `tenant_transactions.type` CHECK |
+| `OnboardingSessionStatus` | 9 values — `'initiated'`, `'siret_verified'`, `'vat_verified'`, `'documents_pending'`, `'documents_submitted'`, `'under_review'`, `'completed'`, `'failed'`, `'expired'` | `OnboardingSession::STATUS_*` |
+| `QuoteStatus` (re-exported from root) | now 8 values (added `'viewed'`, `'expired'`) — full alignment with `App\Enums\Quote\QuoteStatus` | `App\Enums\Quote\QuoteStatus` |
+
+#### Extended — `QuoteStatus` from 6 to 8 values (non-breaking)
+
+The `QuoteStatus` union now includes the two missing backend values:
+
+- `'viewed'` — buyer opened the public viewer at least once
+- `'expired'` — `validity_date` passed without buyer decision
+
+The two new literals are additive — existing code accepting only the 6
+previous values keeps compiling. The full union is now:
+
+```ts
+export type QuoteStatus =
+  | 'draft' | 'sent' | 'viewed' | 'accepted'
+  | 'refused' | 'expired' | 'converted' | 'cancelled';
+```
+
+#### Tool description enrichments
+
+The 5 listed-resource tools now surface the full set of legal filter values
+in their MCP description, so the LLM can produce valid queries without
+guessing:
+
+- `scell_list_quotes` — enumerates the 8 `QuoteStatus` values (incl. new `'viewed'` and `'expired'`)
+- `scell_list_signatures` — enumerates the 7 `SignatureStatus` values + the 4 `archive_status` values
+- `scell_list_credit_notes` — enumerates `status` (`draft \| sent`) AND `type` (`partial \| total`) filters
+- `scell_list_invoices` — already enriched in v2.21.0; now also documents the `archive_status` field exposed on every returned invoice
+- `scell_get_subtenant_status` — enumerates the 6 `SubTenantOnboardingStatus` values and tells the LLM which one triggers which remediation tool
+
+#### Non-breaking notes
+
+- `CreditNoteStatus` documentation now clarifies that the backend canonical
+  values are `'draft' \| 'sent'` only. The legacy `'cancelled'` literal is
+  preserved in the union for backwards compatibility with SDK consumers
+  ≤ v2.21.0.
+- All new exports are pure type-level additions. No runtime behaviour
+  changes. No breaking change for existing consumers.
+
+#### Tests
+
+- New: `tests/backend-enum-mirrors.test.mjs` — 41 cases covering union
+  declarations in `.d.ts`, root re-exports, runtime assignability, and
+  tool-description enumerations.
+
 ## [2.21.0] - 2026-05-27
 
 ### Added — Full `InvoiceStatus` union + `RefundStatus` / `totalRefunded` on `Invoice`

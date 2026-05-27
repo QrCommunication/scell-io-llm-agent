@@ -21,12 +21,16 @@ export type {
   Invoice,
   InvoiceStatus,
   RefundStatus,
+  InvoiceType,
+  InvoiceTemplateKind,
+  InvoiceArchiveStatus,
 
   // Credit Note types
   CreditNote,
   CreditNoteInput,
   CreditNoteLine,
   CreditNoteStatus,
+  CreditNoteType,
 
   // Signature types
   Signer,
@@ -39,6 +43,7 @@ export type {
   InitialsPosition,
   Mention,
   DateBlock,
+  SignatureArchiveStatus,
 
   // Fiscal Compliance types
   FiscalComplianceData,
@@ -75,6 +80,7 @@ export type {
   SubTenantHasFiscalEntriesError,
   SubTenantMissingAccessTokenError,
   OnboardingStatus,
+  SubTenantOnboardingStatus,
   SuperPDPCompanyVerificationStatus,
   SuperPDPUserIdentityVerificationStatus,
   RecommendedAction,
@@ -85,6 +91,11 @@ export type {
   CreateSubTenantWidgetResult,
   TenantProfile,
   TenantBalance,
+  TenantKybStatus,
+  TenantInvoiceStatus,
+  TenantTransactionType,
+  CompanyStatus,
+  ApiKeyStatus,
 
   // Result types
   ToolResult,
@@ -99,6 +110,7 @@ export type {
   OnboardingCallbackResponse,
   OnboardingSession,
   OnboardingSessionInput,
+  OnboardingSessionStatus,
 
   // Webhook types
   WebhookEventType,
@@ -106,6 +118,7 @@ export type {
 
   // Payment Schedule types (since 2.13.0)
   PaymentScheduleAmountType,
+  PaymentScheduleLineAmountType,
   PaymentScheduleLineStatus,
   PaymentScheduleLineInput,
   PaymentSchedulePatchInput,
@@ -116,6 +129,10 @@ export type {
   PaymentSummary,
   PaymentSchedulePreset,
   InvoiceSendByEmailResult,
+
+  // Quote types (since 2.11.0)
+  QuoteStatus,
+  QuoteAuditAction,
 
   // Branding types (since 2.13.0)
   Branding,
