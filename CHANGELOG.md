@@ -4,6 +4,87 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.21.0] - 2026-05-27
+
+### Added — Full `InvoiceStatus` union + `RefundStatus` / `totalRefunded` on `Invoice`
+
+The backend `invoices.status` PostgreSQL CHECK constraint now exposes 16
+lifecycle values (previously the SDK typed only 6). The `Invoice` response
+also carries two new read-only fields auto-maintained by the backend
+`CreditNoteObserver` when validated credit notes target an invoice.
+
+#### New `InvoiceStatus` type (exported)
+
+```ts
+export type InvoiceStatus =
+  | 'draft'           // Editing, not yet validated
+  | 'validating'      // Fiscal sequence + numbering being locked
+  | 'validated'       // Issued (immutable on ISCA ledger)
+  | 'converting'      // Factur-X / UBL / CII generation in progress
+  | 'converted'       // XML+PDF artefacts produced and stored on S3
+  | 'transmitting'    // Submission to SuperPDP / PEPPOL in progress
+  | 'transmitted'     // Successfully accepted by recipient platform
+  | 'accepted'        // Buyer (or their PDP) acknowledged
+  | 'rejected'        // Recipient platform rejected
+  | 'disputed'        // Buyer flagged a litigation
+  | 'paid'            // Marked as paid (manual or auto)
+  | 'received'        // Incoming invoice received from counterparty
+  | 'completed'       // Terminal — no further transitions
+  | 'error'           // Terminal failure
+  | 'refunded'        // Credit note fully credited the invoice
+  | 'partially_refunded'; // Credit note partially credited the invoice
+```
+
+The `Invoice.status` field now uses this union (previously
+`'draft' | 'pending' | 'sent' | 'paid' | 'cancelled' | 'disputed'` — which
+did not match the backend reality).
+
+#### New `RefundStatus` type (exported)
+
+```ts
+export type RefundStatus = 'none' | 'partial' | 'full';
+```
+
+#### New `Invoice` fields (both optional, read-only)
+
+| Field | Type | Description |
+|---|---|---|
+| `refundStatus` | `RefundStatus` | Aggregated refund coverage. `'full'` pairs with `status='refunded'`, `'partial'` with `status='partially_refunded'`. |
+| `totalRefunded` | `number` | Sum of `totalIncludingTax` of every validated credit note targeting this invoice. `0` when `refundStatus='none'`. |
+
+Both are auto-set by the backend `CreditNoteObserver` on credit note
+validation — clients never write to these fields.
+
+#### Tool documentation updates
+
+- `scell_get_invoice` description now enumerates the full 16-value status
+  set and documents the new `refund_status` / `total_refunded` REST
+  response fields, with a hint to use `refund_status='full'` for robust
+  refund detection.
+- `scell_list_invoices` description now enumerates the full status set
+  for the `status` query filter (with common LLM filtering patterns:
+  `status=paid`, `status=transmitted`, `status=refunded`,
+  `status=partially_refunded`) and documents the new response fields.
+
+The MCP server consuming this client config maps camelCase ↔ snake_case
+for the REST API:
+
+- `refundStatus` ↔ `refund_status`
+- `totalRefunded` ↔ `total_refunded`
+
+### Compat
+
+- **Backward compatible at runtime**: no breaking changes to the request
+  payload of any tool. The new fields are response-only.
+- **TypeScript breaking-ish for strict consumers**: the `Invoice.status`
+  union was previously `'draft'|'pending'|'sent'|'paid'|'cancelled'|'disputed'`
+  (a subset that did NOT match the backend reality). It is now the
+  exhaustive 16-value `InvoiceStatus` union. Code that exhaustively
+  switched on the old narrower union (e.g. `switch(invoice.status)` with
+  no `default`) will need to handle the new values — but this was already
+  a latent bug (the backend always emitted those values). Code that read
+  `invoice.status` as a string and compared with `===` is unaffected.
+
 ## [2.20.0] - 2026-05-27
 
 ### Added — `parentQuoteId` + `invoiceType` on `InvoiceInput`

@@ -310,6 +310,65 @@ export interface BuyerInput {
 }
 
 /**
+ * Invoice lifecycle status (since v2.21.0).
+ *
+ * Aligned with the PostgreSQL `invoices.status` CHECK constraint on the
+ * Scell.io backend. The values cover the full invoice lifecycle from
+ * draft through emission, transmission (SuperPDP / PEPPOL), payment,
+ * disputes and refunds.
+ *
+ * | Status | Description |
+ * |---|---|
+ * | `draft` | Invoice is being edited, not yet validated. |
+ * | `validating` | Backend is locking the fiscal sequence + numbering. |
+ * | `validated` | Issued (immutable on the ISCA ledger). |
+ * | `converting` | Factur-X / UBL / CII XML+PDF generation in progress. |
+ * | `converted` | XML+PDF artefacts produced and stored on S3. |
+ * | `transmitting` | Submission to SuperPDP / PEPPOL in progress. |
+ * | `transmitted` | Successfully accepted by the recipient platform. |
+ * | `accepted` | Buyer (or their PDP) has acknowledged the invoice. |
+ * | `rejected` | Recipient platform rejected the invoice. |
+ * | `disputed` | Buyer flagged a litigation (manual workflow). |
+ * | `paid` | Marked as paid (manual `scell_mark_invoice_paid` or auto). |
+ * | `received` | Incoming invoice received from a counterparty. |
+ * | `completed` | Final state — no further transitions expected. |
+ * | `error` | Terminal failure (transmission / generation error). |
+ * | `refunded` | A credit note has fully credited this invoice. Set by `CreditNoteObserver` when `total_refunded ≥ total_including_tax`. |
+ * | `partially_refunded` | A credit note has partially credited this invoice. Set by `CreditNoteObserver` when `0 < total_refunded < total_including_tax`. |
+ */
+export type InvoiceStatus =
+  | 'draft'
+  | 'validating'
+  | 'validated'
+  | 'converting'
+  | 'converted'
+  | 'transmitting'
+  | 'transmitted'
+  | 'accepted'
+  | 'rejected'
+  | 'disputed'
+  | 'paid'
+  | 'received'
+  | 'completed'
+  | 'error'
+  | 'refunded'
+  | 'partially_refunded';
+
+/**
+ * Refund coverage of an invoice (since v2.21.0).
+ *
+ * Computed by the backend from the sum of validated credit notes
+ * targeting the invoice, compared to `totalIncludingTax`.
+ *
+ * - `'none'` — no validated credit note (`total_refunded === 0`).
+ * - `'partial'` — `0 < total_refunded < totalIncludingTax`. Pairs with
+ *   `status='partially_refunded'`.
+ * - `'full'` — `total_refunded >= totalIncludingTax`. Pairs with
+ *   `status='refunded'`.
+ */
+export type RefundStatus = 'none' | 'partial' | 'full';
+
+/**
  * Created invoice response
  */
 export interface Invoice {
@@ -317,8 +376,15 @@ export interface Invoice {
   id: string;
   /** Invoice number */
   invoiceNumber: string;
-  /** Invoice status */
-  status: 'draft' | 'pending' | 'sent' | 'paid' | 'cancelled' | 'disputed';
+  /**
+   * Invoice lifecycle status. The union was extended in v2.21.0 to match
+   * the backend PostgreSQL CHECK constraint: 16 values covering the full
+   * lifecycle (draft → validated → transmitted → paid) plus
+   * refund-driven states (`refunded`, `partially_refunded`) auto-set by
+   * the backend `CreditNoteObserver` when validated credit notes target
+   * this invoice. See {@link InvoiceStatus} for the exhaustive list.
+   */
+  status: InvoiceStatus;
   /** Total amount excluding tax */
   totalExcludingTax: number;
   /** Total VAT amount */
@@ -352,6 +418,29 @@ export interface Invoice {
    * Available since v1.12.0.
    */
   creditedAmount?: number;
+  /**
+   * Aggregated refund coverage of the invoice (since v2.21.0). Computed by
+   * the backend from `total_refunded` vs `total_including_tax`:
+   * - `'none'` — no validated credit note targets this invoice.
+   * - `'partial'` — at least one credit note exists, but `total_refunded`
+   *   is strictly less than `totalIncludingTax`. Pairs with
+   *   `status='partially_refunded'`.
+   * - `'full'` — `total_refunded >= totalIncludingTax`. Pairs with
+   *   `status='refunded'`.
+   *
+   * Read-only — set by `CreditNoteObserver` on credit note validation.
+   * Available since v2.21.0.
+   */
+  refundStatus?: RefundStatus;
+  /**
+   * Total amount refunded via validated credit notes (since v2.21.0). Sum
+   * of `totalIncludingTax` of every credit note in a creditable status
+   * targeting this invoice. Always `0` when `refundStatus === 'none'`.
+   *
+   * Read-only — set by `CreditNoteObserver` on credit note validation.
+   * Available since v2.21.0.
+   */
+  totalRefunded?: number;
   /**
    * Invoice type: standard (default), deposit (acompte) or balance (solde).
    * Deposit and balance invoices are created from an accepted quote via

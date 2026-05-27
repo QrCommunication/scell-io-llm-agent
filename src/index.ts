@@ -19,6 +19,8 @@ export type {
   InvoiceLine,
   InvoiceInput,
   Invoice,
+  InvoiceStatus,
+  RefundStatus,
 
   // Credit Note types
   CreditNote,
