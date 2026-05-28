@@ -145,6 +145,10 @@ export type {
   LineVatContext,
   VatContextRequest,
   VatContextResponse,
+
+  // Suppliers Registry types (since 2.26.0)
+  Supplier,
+  SupplierInput,
 } from './types/index.js';
 
 // Export configuration generators

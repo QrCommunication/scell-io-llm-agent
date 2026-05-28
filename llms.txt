@@ -182,6 +182,30 @@ pour cibler un document spécifique au sein du bundle :
 Valeurs acceptées : `0..10`. Mappé en snake_case côté backend :
 `documentIndex` → `document_index`.
 
+#### Nouveau champ : `signerIndex` sur les positions de signature (v2.27.0)
+
+`signature_positions[]` reçoit un champ optionnel `signerIndex` (entier
+0-base) qui affecte la position à un signataire précis du tableau
+`SignatureInput.signers` :
+
+- `signerIndex: 0` → premier signataire (`signers[0]`)
+- `signerIndex: 1` → deuxième signataire (`signers[1]`)
+- absent           → position commune / flux global (comportement legacy)
+
+L'API EU-SES autorise **plusieurs positions de signature pour un même
+signataire** : fournir N entrées portant le même `signerIndex` (sur des
+pages ou documents différents). Mappé en snake_case côté backend :
+`signerIndex` → `signer_index`.
+
+```typescript
+// 2 signataires, le premier signe page 1 ET page 3
+signature_positions: [
+  { signerIndex: 0, page: 1, x: 10, y: 80 },
+  { signerIndex: 0, page: 3, x: 10, y: 80 }, // 2e position pour signers[0]
+  { signerIndex: 1, page: 1, x: 60, y: 80 },
+]
+```
+
 #### Limites backend
 
 - **10 attachments max** par demande de signature.

@@ -4,6 +4,74 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.27.0] - 2026-05-28
+
+### Added — Per-signer signature positions (`signerIndex`, multi-position support)
+
+The EU-SES signature API now lets each signature position be assigned to a
+specific signer, and allows **multiple signature positions per signer**.
+
+#### New field
+
+- `SignaturePosition.signerIndex?` (number, optional) — 0-based index into the
+  `SignatureInput.signers[]` array (`0` = first signer). When omitted, the
+  position applies to the global signature flow (legacy, fully backward
+  compatible).
+
+#### Multi-position per signer
+
+Provide N `SignaturePosition` entries sharing the same `signerIndex` to place a
+single signer's signature on several pages or documents (combine with
+`documentIndex` for multi-document bundles):
+
+```typescript
+signature_positions: [
+  { signerIndex: 0, page: 1, x: 10, y: 80 },
+  { signerIndex: 0, page: 3, x: 10, y: 80 }, // 2nd position for signers[0]
+  { signerIndex: 1, page: 1, x: 60, y: 80 },
+]
+```
+
+#### camelCase → snake_case mapping
+
+The MCP server consuming this client config maps `signerIndex` →
+`signer_index` before `POST /api/v1/signatures` (same convention already used
+for `Mention.signerIndex`).
+
+#### Updated
+
+- `SignaturePosition` interface + JSDoc (`src/types/index.ts`).
+- `SignatureInput.signature_positions` field doc.
+- `scell_create_signature` tool description (`src/config/generator.ts`).
+
+No breaking change — `signerIndex` is optional; existing payloads keep working.
+
+## [2.26.0] - 2026-05-28
+
+### Added — Suppliers Registry (5 new MCP tools, 2 new types)
+
+Mirror of the Buyers Registry surface for suppliers / vendors (Accounts
+Payable). Suppliers are reusable, deduplicated profiles scoped strictly by
+`(tenant_id, sub_tenant_id)` — same isolation policy as buyers. Unlike
+buyers, suppliers have **no** shipping address, **no** `billing_email`, and
+**no** VAT-context resolution (they are the issuing party of incoming
+invoices, not a delivery destination).
+
+The MCP tool catalog passes from **98 → 103 tools**.
+
+#### New tools (5)
+- `scell_list_suppliers` — `GET /api/v1/suppliers` (filters: `q`, `is_individual`, `sub_tenant_id`, `page`, `per_page`). Returns `PaginatedResult<Supplier>`.
+- `scell_create_supplier` — `POST /api/v1/suppliers`. Idempotent on `(tenant_id, sub_tenant_id, siret)` / `(tenant_id, sub_tenant_id, lower(email))`.
+- `scell_get_supplier` — `GET /api/v1/suppliers/{id}` (anti-IDOR 404).
+- `scell_update_supplier` — `PUT /api/v1/suppliers/{id}` (partial update).
+- `scell_delete_supplier` — `DELETE /api/v1/suppliers/{id}` (soft delete, 204).
+
+#### New types (2)
+- `Supplier` — registry entry (id, name, isIndividual, siret, vatNumber, legalId, legalIdScheme, email, phone, country, billingAddress, metadata, notes, timestamps).
+- `SupplierInput` — create/update payload.
+
+Both types are exported from the package barrel (`@scell/mcp-client`).
+
 ## [2.25.0] - 2026-05-28
 
 ### Added — Factur-X BT-81 payment_means_code (2 new MCP tools, 1 new type)

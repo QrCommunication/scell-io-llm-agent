@@ -310,6 +310,60 @@ export interface BuyerInput {
 }
 
 /**
+ * Supplier entry from the registry (since v2.26.0). Reusable supplier /
+ * vendor profile, scoped strictly by (tenant_id, sub_tenant_id) — a tenant
+ * NEVER sees another tenant's suppliers, a sub-tenant only sees its own.
+ * Shape mirrors the backend Supplier model. Unlike Buyer, a Supplier has
+ * NO shipping address and NO VAT-context resolution (suppliers are the
+ * issuing party of incoming invoices, not a delivery destination).
+ */
+export interface Supplier {
+  id: string;
+  tenantId: string;
+  subTenantId: string | null;
+  name: string;
+  isIndividual: boolean;
+  siret: string | null;
+  vatNumber: string | null;
+  legalId: string | null;
+  legalIdScheme: string | null;
+  email: string | null;
+  phone: string | null;
+  country: string;
+  /** Required billing address. */
+  billingAddress: {
+    line1: string;
+    line2?: string;
+    postalCode: string;
+    city: string;
+    region?: string;
+    country: string;
+  };
+  metadata?: Record<string, unknown> | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Input for creating/updating a Supplier registry entry (since v2.26.0).
+ */
+export interface SupplierInput {
+  name: string;
+  country: string;
+  billingAddress: Supplier['billingAddress'];
+  isIndividual?: boolean;
+  siret?: string;
+  vatNumber?: string;
+  legalId?: string;
+  legalIdScheme?: string;
+  email?: string;
+  phone?: string;
+  metadata?: Record<string, unknown>;
+  notes?: string;
+}
+
+/**
  * Invoice lifecycle status (since v2.21.0).
  *
  * Aligned with the PostgreSQL `invoices.status` CHECK constraint on the
@@ -1061,6 +1115,31 @@ export interface SignatureUIConfig {
 
 /**
  * Position d'une zone de signature visuelle sur le document.
+ *
+ * ## Affectation a un signataire precis (`signerIndex`, depuis v2.27.0)
+ *
+ * Par defaut, une position non rattachee s'applique au flux de signature
+ * global. Le champ optionnel `signerIndex` (0-base) permet de l'affecter a
+ * un signataire precis du tableau `SignatureInput.signers` :
+ *
+ * - `signerIndex: 0` → premier signataire (`signers[0]`)
+ * - `signerIndex: 1` → deuxieme signataire (`signers[1]`)
+ * - absent           → position commune / flux global (comportement legacy)
+ *
+ * L'API EU-SES autorise **plusieurs positions de signature pour un meme
+ * signataire** : il suffit de fournir N entrees `SignaturePosition` portant
+ * le meme `signerIndex` (eventuellement sur des pages ou documents
+ * differents via `documentIndex`).
+ *
+ * @example
+ * ```typescript
+ * // Deux signataires, le premier signe page 1 ET page 3
+ * signature_positions: [
+ *   { signerIndex: 0, page: 1, x: 10, y: 80 },
+ *   { signerIndex: 0, page: 3, x: 10, y: 80 }, // 2e position pour signers[0]
+ *   { signerIndex: 1, page: 1, x: 60, y: 80 },
+ * ]
+ * ```
  */
 export interface SignaturePosition {
   /**
@@ -1076,6 +1155,21 @@ export interface SignaturePosition {
    * @since v2.17.0
    */
   documentIndex?: number;
+  /**
+   * Index (0-base) du signataire auquel cette position est affectee, dans
+   * l'ordre du tableau `SignatureInput.signers` (0 = premier signataire).
+   *
+   * Si absent, la position s'applique au flux de signature global
+   * (comportement legacy). Plusieurs positions peuvent partager le meme
+   * `signerIndex` : l'API EU-SES accepte **N positions par signataire**
+   * (par ex. sur plusieurs pages ou documents).
+   *
+   * Le MCP server consuming this client config mappe ce champ vers
+   * `signer_index` (snake_case) avant POST `/api/v1/signatures`.
+   *
+   * @since v2.27.0
+   */
+  signerIndex?: number;
   /** Numero de page (1-indexe). */
   page: number;
   /** Coordonnee X. Unite definie par `unit`. */
@@ -1511,7 +1605,15 @@ export interface SignatureInput {
   attachments?: SignatureAttachment[];
   /** Liste de 1 a 10 signataires. */
   signers: SignerInput[];
-  /** Positions visuelles des zones de signature. */
+  /**
+   * Positions visuelles des zones de signature.
+   *
+   * Chaque entree peut etre affectee a un signataire precis via son champ
+   * optionnel `signerIndex` (0-base, aligne sur l'ordre de `signers`). Un
+   * meme signataire peut recevoir **plusieurs positions** (N entrees avec
+   * le meme `signerIndex`). Si `signerIndex` est absent, la position
+   * s'applique au flux global (comportement legacy).
+   */
   signature_positions?: SignaturePosition[];
   /** White-label UI (21 champs). Defaut: branding Scell.io. */
   ui_config?: SignatureUIConfig;
