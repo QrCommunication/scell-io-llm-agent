@@ -4,6 +4,117 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.24.0] - 2026-05-28
+
+### Added — 24 new MCP tools (Buyers, Invoice Templates, Branding, Billing, Credit Packs, Sub-Tenant CRUD)
+
+Following the W2 audit (`docs/audit-api/W2-gap-matrix-2026-05-28.md`
+in the backend repo), this release closes the 24-tool gap between the
+MCP layer and the live backend surface. The MCP tool catalog grows
+from **72 → 96 tools**.
+
+#### Buyers Registry (5 new tools)
+
+The buyers registry (introduced backend-side on 2026-05-06) is a
+deduplicated catalog of reusable customer profiles scoped strictly
+by `(tenant_id, sub_tenant_id)`. Snapshotted onto invoices / quotes
+at emission time (ISCA-compliant).
+
+- `scell_list_buyers` — `GET /api/v1/buyers` (paginated, `q` + `is_individual` filters)
+- `scell_create_buyer` — `POST /api/v1/buyers` (upsert on SIRET / lowercase email)
+- `scell_get_buyer` — `GET /api/v1/buyers/{id}` (anti-IDOR 404)
+- `scell_update_buyer` — `PUT /api/v1/buyers/{id}` (does NOT propagate to past invoices)
+- `scell_delete_buyer` — `DELETE /api/v1/buyers/{id}` (soft delete, 30-day trash)
+
+#### Invoice Templates (6 new tools)
+
+Templates customize Factur-X PDF + quote PDF rendering (logo, primary
+color, footer, mentions). Cascade: explicit `invoice_template_id` →
+sub_tenant default → tenant default → system default.
+
+- `scell_list_invoice_templates` — `GET /api/v1/invoice-templates` (filter by `kind`)
+- `scell_create_invoice_template` — `POST /api/v1/invoice-templates`
+- `scell_get_invoice_template` — `GET /api/v1/invoice-templates/{id}`
+- `scell_update_invoice_template` — `PUT /api/v1/invoice-templates/{id}` (system = 403)
+- `scell_delete_invoice_template` — `DELETE /api/v1/invoice-templates/{id}` (FK preserved)
+- `scell_set_default_invoice_template` — `PUT /api/v1/invoice-templates/{id}/default` (atomic swap)
+
+#### Email Branding (3 new tools)
+
+Branding customizes the logo, primary color, footer, and signature
+on outbound emails (invoice, credit note, quote). Hex `#RRGGBB`
+validated server-side. Distinct from `Company.logo_url` (Factur-X PDF).
+
+- `scell_get_branding` — `GET /api/v1/branding/tenant` OR `…/sub-tenants/{id}`
+- `scell_update_branding` — `PUT /api/v1/branding/…` (partial, nullable)
+- `scell_upload_branding_logo` — `POST` (pre-signed S3 PUT URL, 15 min TTL)
+
+#### Billing (4 new tools)
+
+Tenant billing for Scell.io platform consumption (subscription,
+top-ups, pack purchases, monthly usage).
+
+- `scell_get_billing_invoices` — `GET /api/v1/tenant/billing/scell-invoices`
+- `scell_get_billing_usage` — `GET /api/v1/tenant/billing/usage`
+- `scell_topup_balance` — `POST /api/v1/tenant/billing/top-up` (Stripe PI, idempotent)
+- `scell_pay_invoice` — `POST /api/v1/tenant/billing/invoices/{id}/pay`
+
+#### Credit Packs (2 new tools)
+
+One-shot bundles of platform credits (e.g. "100 signatures") at a
+discounted rate vs. PAYG. Sandbox credits directly; live goes
+through Stripe.
+
+- `scell_list_credit_packs` — `GET /api/v1/packs/public` (no auth)
+- `scell_purchase_credit_pack` — `POST /api/v1/tenant/billing/packs/{slug}/checkout`
+
+#### Sub-Tenant CRUD (4 new tools)
+
+CRUD on sub-tenants of the calling master tenant. Each sub-tenant has
+its own isolated ISCA fiscal ledger (separate hash chain).
+
+- `scell_list_sub_tenants` — `GET /api/v1/tenant/sub-tenants` (paginated)
+- `scell_get_sub_tenant` — `GET /api/v1/tenant/sub-tenants/{id}` (raw row)
+- `scell_create_sub_tenant` — `POST /api/v1/tenant/sub-tenants` (returns `pending_superpdp`)
+- `scell_update_sub_tenant` — `PUT /api/v1/tenant/sub-tenants/{id}` (async SuperPDP sync)
+
+Complements the existing 5 lifecycle tools
+(`scell_get_subtenant_status`, `scell_refresh_subtenant_status`,
+`scell_start_subtenant_superpdp_authorize`, `scell_resume_url`,
+`scell_delete_sub_tenant`).
+
+### Fixed — Drift detections from W2 audit
+
+- `src/cli.ts` — `VERSION` const was hardcoded at `'2.14.0'` and missed
+  every release since v2.15. Now bumped to `'2.24.0'` and visible via
+  `scell-mcp --version` + help banner.
+- `src/config/generator.ts` — header `"Available tools (57):"` was
+  drifted from the actual count. Updated to `"Available tools (96):"`
+  (72 prior + 24 new in this release).
+- `scell_tenant_list_signatures` — description referenced the obsolete
+  `403 COMPANY_REQUIRED` error code. The `api_keys.company_id`
+  column was dropped in the 2026-05-11 backend refonte. Updated to
+  reference the current model: `404 SUB_TENANT_NOT_FOUND` (anti-IDOR)
+  and `401 TENANT_NOT_RESOLVED` (key cannot resolve to a tenant).
+
+### Compat
+
+- **Fully backward compatible.** All changes are additive (new tools
+  in `generateConfigWithInstructions` output) or documentation-only
+  (CLI banner, description fix). No type changes, no removed tools,
+  no breaking changes to existing tool descriptions other than the
+  obsolete error code fix.
+
+### Tests
+
+- Existing test suite (190 tests across 41 suites) continues to pass
+  unchanged.
+- No new test file added: the new tools are description-only string
+  additions inside the existing `generateConfigWithInstructions`
+  template literal; the existing post-build smoke tests
+  (`tests/backend-enum-mirrors.test.mjs`) implicitly cover the
+  generator output.
+
 ## [2.22.0] - 2026-05-27
 
 ### Added — Full backend enum mirror coverage + tool description enrichments
