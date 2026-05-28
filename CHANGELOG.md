@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.27.1] - 2026-05-28
+
+### Changed
+- Alignement de version (parité SDK PHP/JS/MCP). `InvoiceStatus` était déjà
+  conforme aux 16 statuts canoniques du backend — aucune modification de type.
+
 ## [2.27.0] - 2026-05-28
 
 ### Added — Per-signer signature positions (`signerIndex`, multi-position support)
