@@ -24,6 +24,7 @@ export type {
   InvoiceType,
   InvoiceTemplateKind,
   InvoiceArchiveStatus,
+  PaymentMeansCode,
 
   // Credit Note types
   CreditNote,

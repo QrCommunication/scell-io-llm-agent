@@ -4,6 +4,75 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [2.25.0] - 2026-05-28
+
+### Added — Factur-X BT-81 payment_means_code (2 new MCP tools, 1 new type)
+
+Backend livraison du jour (commit `a48c241` sur scell.io backend) : le champ
+`payment_means_code` (Factur-X EN16931 BT-81, codes UN/ECE 4461) devient
+**obligatoire** sur les endpoints `mark-paid` (outgoing + incoming). Cette
+release expose la nouvelle surface aux LLM via 2 nouveaux tools MCP et
+enrichit les types `Invoice` / `CreditNote` pour refléter les champs
+persistés côté backend.
+
+Le MCP tool catalog passe de **96 → 98 tools**.
+
+#### Nouveaux tools (2)
+
+- `scell_mark_invoice_paid` — `POST /api/v1/invoices/{invoiceId}/mark-paid`
+  (auth `sk_*` / Bearer Sanctum). Le tool existait déjà comme description
+  partielle dans le tool catalog v2.24.0 mais sans body documenté. Cette
+  release **rend le tool first-class** avec :
+  - Body schema complet (`payment_means_code` requis enum, plus
+    `payment_means_text`, `payment_reference`, `paid_at`, `note` optionnels).
+  - Les 11 codes UN/ECE 4461 listés avec leur label FR/EN dans la description
+    pour que le LLM puisse les surfacer à l'utilisateur sans aller-retour.
+  - Mention explicite de la conformité **Factur-X EN16931 BT-81**.
+  - Default UX-friendly recommandé : `'30'` (virement) ou `'58'` (SEPA pour
+    tenants B2B France).
+  - Erreurs documentées : `422 INVOICE_NOT_PAYABLE`, `422 ALREADY_PAID`,
+    `422` si `payment_means_code` manquant / invalide.
+
+- `scell_mark_incoming_invoice_paid` (**nouveau**) — `POST
+  /api/v1/tenant/invoices/incoming/{invoiceId}/mark-paid` (auth `sk_*` /
+  Bearer Sanctum). Tool dédié au paiement d'une facture **reçue d'un
+  fournisseur** (suivi AP — Accounts Payable). Même body que
+  `scell_mark_invoice_paid`. Différence comportementale clé : seules les
+  factures en `status='accepted'` peuvent être marquées payées (lifecycle
+  incoming plus strict : `received → accepted → paid`, pas de
+  `validated`/`transmitted`/`sent`). Met à jour la facture entrante +
+  appendice à `superpdp_response.payment_history` pour audit trail.
+
+#### Nouveau type
+
+- `PaymentMeansCode` — union literal type des 11 codes UN/ECE 4461 (`'1'`,
+  `'10'`, `'20'`, `'30'`, `'42'`, `'48'`, `'49'`, `'57'`, `'58'`, `'59'`,
+  `'97'`). JSDoc complet avec table des labels FR/EN, référence officielle
+  (UN/ECE Rec. 16, FNFE-MPE Factur-X) et recommandation de défaut pour UX.
+  Aligné sur le backend `App\Enums\Invoice\PaymentMeansCode`.
+
+#### Types enrichis (2)
+
+- `Invoice` : 2 nouveaux champs optionnels `paymentMeansCode?:
+  PaymentMeansCode | null` (BT-81) et `paymentMeansText?: string | null`
+  (BT-82, max 100 chars). Persistés par le backend quand l'invoice est
+  marked-paid via les nouveaux endpoints. `null` tant que non payée.
+- `CreditNote` : mêmes 2 champs avec les mêmes sémantiques (codes de
+  remboursement quand l'avoir est marked-paid).
+
+### Compat
+
+- Backward compatible : tous les 96 tools de v2.24.0 sont préservés.
+- Les nouveaux champs sur `Invoice` / `CreditNote` sont strictement
+  optionnels (`?: ... | null`), n'affectent pas le code consumer existant.
+- Les nouveaux tools sont additifs — aucun renommage / suppression.
+
+### Source de vérité
+
+- Backend MarkPaidRequest : `backend/app/Http/Requests/Invoice/MarkPaidRequest.php`
+- Backend enum : `backend/app/Enums/Invoice/PaymentMeansCode.php`
+- Backend commit : `a48c241` (2026-05-27)
+
 ## [2.24.0] - 2026-05-28
 
 ### Added — 24 new MCP tools (Buyers, Invoice Templates, Branding, Billing, Credit Packs, Sub-Tenant CRUD)

@@ -403,6 +403,25 @@ export interface Invoice {
   paymentReference?: string;
   /** Payment notes */
   paymentNote?: string;
+  /**
+   * Payment means code (UN/ECE 4461) — Factur-X EN16931 BT-81. Set by
+   * `scell_mark_invoice_paid` (required on the mark-paid endpoint since
+   * v2.25.0 / backend 2026-05-27). Surfaces the actual collection method
+   * on the paid invoice. Defaults to `null` while the invoice has not yet
+   * been marked paid.
+   *
+   * @since 2.25.0
+   */
+  paymentMeansCode?: PaymentMeansCode | null;
+  /**
+   * Optional free-text label associated with `paymentMeansCode` (Factur-X
+   * BT-82). Useful when the standard code label is ambiguous (e.g. account
+   * holder name, bank reference, custom mention). Max 100 chars enforced
+   * server-side. Defaults to `null` if not provided when marking paid.
+   *
+   * @since 2.25.0
+   */
+  paymentMeansText?: string | null;
   /** Creation timestamp */
   createdAt: string;
   /** Last update timestamp */
@@ -897,6 +916,22 @@ export interface CreditNote {
   currency: string;
   /** Issue date */
   issueDate: string;
+  /**
+   * Payment means code (UN/ECE 4461) — Factur-X EN16931 BT-81. Same
+   * semantics as `Invoice.paymentMeansCode`: reflects the actual
+   * collection / reimbursement method when the credit note is marked
+   * paid (refund issued to the buyer). `null` while not yet marked paid.
+   *
+   * @since 2.25.0
+   */
+  paymentMeansCode?: PaymentMeansCode | null;
+  /**
+   * Optional free-text label associated with `paymentMeansCode` (Factur-X
+   * BT-82). Max 100 chars enforced server-side. `null` when omitted.
+   *
+   * @since 2.25.0
+   */
+  paymentMeansText?: string | null;
   /** Line items */
   items?: CreditNoteLine[];
   /** Creation timestamp */
@@ -3021,6 +3056,51 @@ export type SignatureArchiveStatus = 'pending' | 'archived' | 'glacier' | 'error
  * @since 2.22.0
  */
 export type InvoiceArchiveStatus = 'pending' | 'archived' | 'glacier' | 'error';
+
+/**
+ * Payment means code (UN/ECE 4461) — Factur-X EN16931 BT-81 conformity.
+ *
+ * Aligned with `App\Enums\Invoice\PaymentMeansCode` (backend, 2026-05-27).
+ * Required field on `scell_mark_invoice_paid` and
+ * `scell_mark_incoming_invoice_paid` (the backend `MarkPaidRequest` enforces
+ * it as `required|enum`).
+ *
+ * Source officielle : UN/ECE Recommendation 16 — Code List 4461.
+ * Référence FNFE-MPE : https://fnfe-mpe.org/factur-x/specifications/
+ *
+ * Subset retenu (11 codes effectivement rencontrés en B2B France) :
+ *
+ * | Code | Label FR | Label EN |
+ * |------|----------|----------|
+ * | `'1'` | Non spécifié (fallback) | Unspecified |
+ * | `'10'` | Espèces | Cash |
+ * | `'20'` | Chèque | Cheque |
+ * | `'30'` | Virement (international) | Credit transfer |
+ * | `'42'` | Versement bancaire (sans IBAN) | Bank account transfer |
+ * | `'48'` | Carte bancaire | Bank card |
+ * | `'49'` | Prélèvement | Direct debit |
+ * | `'57'` | Accord permanent (mandat) | Standing agreement |
+ * | `'58'` | Virement SEPA (B2B France privilégié) | SEPA credit transfer |
+ * | `'59'` | Prélèvement SEPA | SEPA direct debit |
+ * | `'97'` | Compensation inter-comptes | Clearing between partners |
+ *
+ * Default recommandé pour UX (pré-remplir le formulaire) : `'30'` (virement
+ * international) ou `'58'` (virement SEPA pour clients B2B France).
+ *
+ * @since 2.25.0
+ */
+export type PaymentMeansCode =
+  | '1'
+  | '10'
+  | '20'
+  | '30'
+  | '42'
+  | '48'
+  | '49'
+  | '57'
+  | '58'
+  | '59'
+  | '97';
 
 /**
  * Tenant KYB (Know Your Business) lifecycle — 5-step verification of the
