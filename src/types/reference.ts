@@ -1,8 +1,8 @@
 /**
  * Country Company Reference Types
  *
- * Served by the public endpoint `GET /api/v1/reference/countries[/{code}]`
- * (no authentication). Lets an agent build a country-aware buyer/seller form:
+ * Served by the authenticated endpoint `GET /api/v1/reference/countries[/{code}]`
+ * (Sanctum or sk_/pk_ API key). Lets an agent build a country-aware buyer/seller form:
  * per country it exposes the VAT number, the national company-registration
  * identifier (register + format) and the known legal forms.
  *

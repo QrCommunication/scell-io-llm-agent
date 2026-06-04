@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.28.1] - 2026-06-04
+
+### Fixed
+- Docs: the country reference endpoint requires authentication (Sanctum or
+  `sk_*`/`pk_*` API key) — corrected the type docs that wrongly described it as
+  public.
+
 ## [2.28.0] - 2026-06-04
 
 ### Added
