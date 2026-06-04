@@ -3325,3 +3325,92 @@ export type OnboardingSessionStatus =
   | 'completed'
   | 'failed'
   | 'expired';
+
+// ============================================================================
+// Micro-Entrepreneur Thresholds + Fiscal Status (since v2.29.0)
+// ============================================================================
+
+/** Revenue category for French micro-entrepreneur thresholds. */
+export type RevenueCategory = 'goods' | 'service' | 'accommodation';
+
+/** Which threshold a gauge measures. */
+export type ThresholdKind =
+  | 'vat_franchise_base'
+  | 'vat_franchise_majored'
+  | 'micro_ceiling';
+
+/** Highest alert level reached on a gauge (null = below first warning). */
+export type ThresholdAlertLevel =
+  | 'warning_80'
+  | 'warning_90'
+  | 'base_exceeded'
+  | 'majored_exceeded'
+  | 'micro_ceiling_exceeded';
+
+/**
+ * A single threshold gauge: cumulative HT revenue for a category against an
+ * applicable threshold, with the reached alert level and a projected crossing
+ * date (extrapolated at the current pace, null if not trending to cross).
+ *
+ * Field names mirror the raw API response (snake_case) returned by
+ * `GET /api/v1/tenant/sub-tenants/{id}/thresholds`.
+ *
+ * @since 2.29.0
+ */
+export interface ThresholdGauge {
+  category: RevenueCategory;
+  kind: ThresholdKind;
+  /** Cumulative HT revenue for the category (EUR). */
+  revenue: number;
+  /** Applicable threshold amount (pro-rated on a first partial year). */
+  threshold: number;
+  /** revenue / threshold * 100, rounded to 1 decimal. */
+  percent: number;
+  level: ThresholdAlertLevel | null;
+  /** True once the threshold is crossed (requires action). */
+  actionable: boolean;
+  /** ISO date (YYYY-MM-DD) of projected crossing, or null. */
+  projected_crossing_date: string | null;
+}
+
+/** Full threshold report for a sub-tenant for a fiscal year. @since 2.29.0 */
+export interface ThresholdReport {
+  sub_tenant_id: string;
+  tenant_id: string;
+  fiscal_year: number;
+  /** ISO 8601 timestamp. */
+  generated_at: string;
+  gauges: ThresholdGauge[];
+  /** Gauges that newly crossed an alert level on this evaluation. */
+  new_alerts: ThresholdGauge[];
+}
+
+/** Response from `scell_get_subtenant_thresholds`. @since 2.29.0 */
+export interface ThresholdsResult {
+  data: ThresholdReport;
+  /** Non-contractual fiscal disclaimer (not tax advice). */
+  disclaimer: string;
+}
+
+export type FiscalRegime = 'micro' | 'reel';
+export type VatStatus = 'franchise' | 'liable';
+export type ActivityType = 'goods' | 'service' | 'accommodation' | 'mixed';
+
+/**
+ * Body for `scell_update_subtenant_fiscal_status`
+ * (PATCH /api/v1/tenant/sub-tenants/{id}/fiscal-status).
+ *
+ * Setting `vat_status: 'liable'` flips Scell.io billing to charge VAT
+ * (subsequent invoices carry VAT and drop the art. 293 B franchise mention);
+ * a `vat_number` becomes required (here or already on the sub-tenant).
+ *
+ * @since 2.29.0
+ */
+export interface UpdateFiscalStatusInput {
+  fiscal_regime?: FiscalRegime;
+  vat_status?: VatStatus;
+  activity_type?: ActivityType;
+  /** ISO date (YYYY-MM-DD) of activity start, or null. */
+  activity_start_date?: string | null;
+  vat_number?: string | null;
+}

@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.29.0] - 2026-06-04
+
+### Added
+- **Micro-entrepreneur threshold + fiscal status tools** (catalog):
+  - `scell_get_subtenant_thresholds` — French micro-entrepreneur threshold gauges
+    for a sub-tenant (VAT franchise base/majored + micro-regime ceiling), with
+    cumulative HT revenue per category, reached alert level, and projected crossing
+    date. Dated rules (loi 2025-1044). Informational (`disclaimer`).
+  - `scell_update_subtenant_fiscal_status` — update regime / VAT status / activity
+    type / start date / VAT number; `vat_status='liable'` flips billing to VAT
+    (drops art. 293 B mention), `vat_number` then required.
+- **Closing CSV download tool** `scell_download_fiscal_closing`; `scell_list_fiscal_closings`
+  now documents `closing_type` (daily|monthly|annual) + `sub_tenant_id` filters and the
+  per-closing `download_url`.
+- New types: `ThresholdReport`, `ThresholdGauge`, `ThresholdsResult`, `RevenueCategory`,
+  `ThresholdKind`, `ThresholdAlertLevel`, `UpdateFiscalStatusInput`, `FiscalRegime`,
+  `VatStatus`, `ActivityType`.
+
 ## [2.28.1] - 2026-06-04
 
 ### Fixed
