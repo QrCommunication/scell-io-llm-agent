@@ -149,6 +149,12 @@ export type {
   // Suppliers Registry types (since 2.26.0)
   Supplier,
   SupplierInput,
+
+  // Country company reference types (since 2.29.0)
+  CountryReference,
+  CountryVatInfo,
+  CountryNationalIdInfo,
+  LegalForm,
 } from './types/index.js';
 
 // Export configuration generators

@@ -11,6 +11,14 @@ export type {
   VatContextResponse,
 } from './vat.js';
 
+// Re-export country company reference types (since 2.29.0)
+export type {
+  CountryReference,
+  CountryVatInfo,
+  CountryNationalIdInfo,
+  LegalForm,
+} from './reference.js';
+
 // ============================================================================
 // Configuration Types
 // ============================================================================

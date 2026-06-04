@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.28.0] - 2026-06-04
+
+### Added
+- Country company reference types `CountryReference`, `CountryVatInfo`,
+  `CountryNationalIdInfo`, `LegalForm` for the public endpoint
+  `GET /api/v1/reference/countries[/{code}]` (no auth). Per country: VAT number
+  (label/example/regex/VIES-checkable), national registration identifier
+  (label/scheme ISO 6523/example/regex/required-for-B2B) and known legal forms —
+  to build country-aware buyer/seller forms.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [2.27.1] - 2026-05-28
