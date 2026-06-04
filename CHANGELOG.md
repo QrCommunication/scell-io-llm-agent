@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.30.0] - 2026-06-04
+
+### Added
+- **Pre-issuance threshold simulator tool** `scell_simulate_subtenant_thresholds`
+  (POST /api/v1/tenant/sub-tenants/{id}/thresholds/simulate). Body `{ amount, category }`.
+  Projects the micro-entrepreneur threshold gauges AS IF a hypothetical invoice were
+  issued — the gauge `level`/`actionable` reflect the post-invoice state. Read-only.
+  New type `SimulateThresholdInput`.
+
 ## [2.29.0] - 2026-06-04
 
 ### Added

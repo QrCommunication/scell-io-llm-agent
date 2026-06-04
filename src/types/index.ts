@@ -3414,3 +3414,15 @@ export interface UpdateFiscalStatusInput {
   activity_start_date?: string | null;
   vat_number?: string | null;
 }
+
+/**
+ * Body for `scell_simulate_subtenant_thresholds`
+ * (POST /api/v1/tenant/sub-tenants/{id}/thresholds/simulate).
+ *
+ * Projects the threshold gauges AS IF a hypothetical invoice of `amount`
+ * (net/HT) were issued in `category`. Read-only. @since 2.30.0
+ */
+export interface SimulateThresholdInput {
+  amount: number;
+  category: RevenueCategory;
+}
