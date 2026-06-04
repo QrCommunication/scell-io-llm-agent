@@ -20,10 +20,14 @@
  * - `INTERMEDIATE`    → S  (taux intermédiaire : 10 % FR)
  * - `REDUCED`         → AA (taux réduit : 5,5 % FR)
  * - `SUPER_REDUCED`   → AA (super-réduit : 2,1 % FR)
- * - `ZERO_RATED`      → Z  (0 % — livraison intracommunautaire B2C)
+ * - `ZERO_RATED`      → Z  (0 % — opération à taux zéro)
  * - `EXEMPT`          → E  (exonérée — art. 261 CGI)
- * - `REVERSE_CHARGE`  → AE (autoliquidation — art. 259-1 CGI, B2B intracom)
- * - `OUT_OF_SCOPE`    → O  (hors-champ TVA — e.g. subvention, remboursement)
+ * - `REVERSE_CHARGE`  → AE (autoliquidation **services** intra-UE B2B — art. 283-2 CGI)
+ * - `OUT_OF_SCOPE`    → O  (services preneur hors UE — art. 259-1 CGI)
+ * - `INTRACOM_GOODS`  → K  (livraison intracommunautaire de **biens** — art. 262 ter I CGI)
+ * - `EXPORT`          → G  (exportation de **biens** hors UE — art. 262 I CGI)
+ * - `FRANCHISE_BASE`  → E  (franchise en base auto-entrepreneur — art. 293 B CGI)
+ * - `EXEMPT_TRAINING` → E  (formation professionnelle continue — art. 261-4-4°a CGI)
  */
 export type VatCategory =
   | 'STANDARD'
@@ -33,7 +37,11 @@ export type VatCategory =
   | 'ZERO_RATED'
   | 'EXEMPT'
   | 'REVERSE_CHARGE'
-  | 'OUT_OF_SCOPE';
+  | 'OUT_OF_SCOPE'
+  | 'INTRACOM_GOODS'
+  | 'EXPORT'
+  | 'FRANCHISE_BASE'
+  | 'EXEMPT_TRAINING';
 
 // ============================================================================
 // VatResolution — single line resolution result from the backend resolver

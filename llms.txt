@@ -1,6 +1,68 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.19.0
+Version: 2.32.0
+
+## v2.32.0 (2026-06-04) — Recurring invoices (facturation récurrente / abonnements)
+
+### Nouveaux tools : facturation récurrente
+
+A recurring invoice is an *abonnement*: a template invoice + a recurrence rule.
+On each due date Scell.io generates ONE occurrence — a real invoice billed to the
+buyer. `emission_mode='auto_send'` submits each occurrence to the PDP (PEPPOL /
+SuperPDP) AND emails the buyer; `emission_mode='draft'` (default) creates a DRAFT
+occurrence for human review (not transmitted, not emailed). The schedule runs until
+the recurrence end is reached (`end_mode`), or it is paused/cancelled. All operations
+are tenant-scoped (anti-IDOR — pass `sub_tenant_id` to attribute the schedule to a
+sub-tenant). Already generated occurrences (invoices) are immutable on the ISCA
+ledger — editing the schedule affects FUTURE occurrences only.
+
+| Tool | Endpoint | Auth |
+|---|---|---|
+| `scell_list_recurring_invoices` | `GET /api/v1/recurring-invoices` | `sk_*` / Bearer |
+| `scell_get_recurring_invoice` | `GET /api/v1/recurring-invoices/{id}` | `sk_*` / Bearer |
+| `scell_create_recurring_invoice` | `POST /api/v1/recurring-invoices` | `sk_*` / Bearer |
+| `scell_update_recurring_invoice` | `PUT /api/v1/recurring-invoices/{id}` | `sk_*` / Bearer |
+| `scell_delete_recurring_invoice` | `DELETE /api/v1/recurring-invoices/{id}` | `sk_*` / Bearer |
+| `scell_pause_recurring_invoice` | `POST /api/v1/recurring-invoices/{id}/pause` | `sk_*` / Bearer |
+| `scell_activate_recurring_invoice` | `POST /api/v1/recurring-invoices/{id}/activate` | `sk_*` / Bearer |
+| `scell_cancel_recurring_invoice` | `POST /api/v1/recurring-invoices/{id}/cancel` | `sk_*` / Bearer |
+| `scell_run_recurring_invoice_now` | `POST /api/v1/recurring-invoices/{id}/run-now` | `sk_*` / Bearer |
+
+### Create body
+
+`{ title (required), sub_tenant_id?, buyer_id? OR (buyer_name, buyer_country,
+buyer_is_individual?, buyer_siret?, buyer_vat_number?, buyer_email?, buyer_address?,
+buyer_shipping_address?), currency?, output_format? ('facturx'|'ubl'|'cii'),
+payment_terms?, lines (required, [{ description, quantity, unit_price, vat_rate,
+unit?, discount?, category?, metadata? }]), recurrence (required, { interval_unit
+('day'|'week'|'month'|'year'), interval_count?, day_of_month?, day_of_week? }),
+start_date (required), end_mode? ('never'|'on_date'|'after_occurrences'), end_date?,
+max_occurrences?, emission_mode? ('draft'|'auto_send'), notify_before_days?,
+metadata? }`. The update body is the same shape with all fields optional.
+
+### LLM guidance
+
+1. ALWAYS clarify the recurrence end before creating: `never` (runs indefinitely
+   until paused/cancelled), `on_date` (stops after `end_date`), or
+   `after_occurrences` (stops after `max_occurrences` invoices).
+2. WARN the user that `day_of_month=31` is clamped to the last day of short months
+   (Feb 28/29, Apr 30) — same for 29/30 in February.
+3. Each occurrence BILLS THE BUYER. Confirm before `emission_mode='auto_send'`
+   (auto-submits to the PDP + emails the buyer). `emission_mode='draft'` creates a
+   draft for review — recommend it for the first schedule.
+4. `scell_run_recurring_invoice_now` generates an off-cycle occurrence immediately
+   (respecting `emission_mode`) — with `auto_send` it bills the buyer right away;
+   confirm first.
+5. To temporarily suspend, prefer `scell_pause_recurring_invoice` over delete;
+   `scell_cancel_recurring_invoice` is terminal (cannot be reactivated).
+
+### New types in this release
+
+`RecurringInvoice`, `CreateRecurringInvoiceInput`, `UpdateRecurringInvoiceInput`,
+`RecurrenceRule`, `RecurringInvoiceStatus` (`active|paused|completed|cancelled`),
+`RecurrenceIntervalUnit` (`day|week|month|year`), `RecurringInvoiceEndMode`
+(`never|on_date|after_occurrences`), `RecurringInvoiceEmissionMode`
+(`draft|auto_send`). All exported from the package root.
 
 ## v2.19.0 (2026-05-26) — VAT context resolution + `scell_resolve_vat_context`
 

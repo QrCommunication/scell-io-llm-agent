@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.32.0] - 2026-06-04
+
+### Added
+- **Recurring invoice tools** (facturation récurrente / abonnements, catalog):
+  - `scell_list_recurring_invoices` — list schedules (GET /recurring-invoices),
+    filters `status` (active|paused|completed|cancelled), `sub_tenant_id`, pagination.
+  - `scell_get_recurring_invoice` — retrieve a schedule by UUID.
+  - `scell_create_recurring_invoice` — create a schedule (template lines + recurrence
+    rule + start date + end mode). LLM rules documented: clarify the recurrence end
+    (never | on_date | after_occurrences), warn that `day_of_month=31` is clamped to
+    the last day of short months, note each occurrence bills the buyer, and that
+    `auto_send` submits to the PDP + emails the buyer (vs `draft` for review).
+  - `scell_update_recurring_invoice` — partial update (future occurrences only).
+  - `scell_delete_recurring_invoice` — delete a schedule.
+  - `scell_pause_recurring_invoice` / `scell_activate_recurring_invoice` — suspend/resume.
+  - `scell_cancel_recurring_invoice` — terminal cancellation.
+  - `scell_run_recurring_invoice_now` — trigger an off-cycle occurrence immediately.
+- New types: `RecurringInvoice`, `CreateRecurringInvoiceInput`,
+  `UpdateRecurringInvoiceInput`, `RecurrenceRule`, `RecurringInvoiceStatus`,
+  `RecurrenceIntervalUnit`, `RecurringInvoiceEndMode`, `RecurringInvoiceEmissionMode`
+  (exported from the package root).
+- Tool catalog count: 103 → 112.
+
+### Added (autoliquidation TVA intra-UE — biens & services)
+- **`VatCategory`** : 4 nouvelles catégories — `INTRACOM_GOODS` (K, livraison
+  intracommunautaire de biens, art. 262 ter I), `EXPORT` (G, exportation hors UE,
+  art. 262 I), `FRANCHISE_BASE` (E, franchise en base AE, art. 293 B),
+  `EXEMPT_TRAINING` (E, formation professionnelle, art. 261-4-4°a).
+- **`InvoiceLine`** : nouveaux champs `supplyType` (`'goods'|'services'`,
+  discrimine K/G vs AE/O), `placeOfSupply` (art. 259-A), `vatOverrideReason`.
+- **`scell_create_invoice`** : doc enrichie — résolution TVA **autoritaire**
+  serveur + réponse **409 VAT_CORRECTION_REQUIRED** (corrections par ligne :
+  taux/catégorie/mention suggérés) si un taux est incohérent sans
+  `vatOverrideReason` ; le LLM doit surfacer les suggestions à l'utilisateur.
+- **`scell_resolve_vat_context`** : doc `supplyType` (biens→K/G, services→AE/O)
+  + nouvelles catégories.
+
 ## [2.31.0] - 2026-06-04
 
 ### Changed (doc des outils avoir)

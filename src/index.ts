@@ -155,6 +155,16 @@ export type {
   CountryVatInfo,
   CountryNationalIdInfo,
   LegalForm,
+
+  // Recurring Invoice types (since 2.32.0)
+  RecurringInvoice,
+  CreateRecurringInvoiceInput,
+  UpdateRecurringInvoiceInput,
+  RecurrenceRule,
+  RecurringInvoiceStatus,
+  RecurrenceIntervalUnit,
+  RecurringInvoiceEndMode,
+  RecurringInvoiceEmissionMode,
 } from './types/index.js';
 
 // Export configuration generators

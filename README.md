@@ -229,6 +229,22 @@ Email branding allows tenants and sub-tenants to customize the logo, primary col
 | `scell_get_sub_tenant_branding` | Get email branding for a specific sub-tenant (anti-IDOR scoped). `GET /api/v1/sub-tenants/{id}/branding`. Returns `Branding`. |
 | `scell_update_sub_tenant_branding` | Update email branding for a specific sub-tenant. `PATCH /api/v1/sub-tenants/{id}/branding` with `BrandingInput`. Returns the updated `Branding`. |
 
+### Recurring Invoices (since v2.32.0)
+
+A recurring invoice is an *abonnement*: a template invoice + a recurrence rule. On each due date Scell.io generates one occurrence — a real invoice billed to the buyer. `emission_mode='auto_send'` submits each occurrence to the PDP (PEPPOL / SuperPDP) **and** emails the buyer; `emission_mode='draft'` (default) creates a draft for human review. The schedule runs until the recurrence end is reached (`end_mode`), or it is paused/cancelled. Tenant-scoped (anti-IDOR); already generated occurrences are immutable on the ISCA ledger.
+
+| Tool | Description |
+|------|-------------|
+| `scell_list_recurring_invoices` | List recurring invoice schedules. `GET /api/v1/recurring-invoices`. Filters: `status` (`active`/`paused`/`completed`/`cancelled`), `sub_tenant_id`, `page`, `per_page`. |
+| `scell_get_recurring_invoice` | Retrieve a schedule by UUID. `GET /api/v1/recurring-invoices/{id}`. |
+| `scell_create_recurring_invoice` | Create a schedule. `POST /api/v1/recurring-invoices`. Body: `title`, buyer (`buyer_id` or inline), `lines[]`, `recurrence` (`interval_unit`/`interval_count`/`day_of_month`/`day_of_week`), `start_date`, `end_mode` (`never`/`on_date`/`after_occurrences`), `emission_mode` (`draft`/`auto_send`). **Clarify the recurrence end with the user; `day_of_month=31` clamps to the last day of short months; each occurrence bills the buyer.** |
+| `scell_update_recurring_invoice` | Partial update. `PUT /api/v1/recurring-invoices/{id}`. Affects future occurrences only. |
+| `scell_delete_recurring_invoice` | Delete a schedule. `DELETE /api/v1/recurring-invoices/{id}`. |
+| `scell_pause_recurring_invoice` | Suspend an active schedule. `POST /api/v1/recurring-invoices/{id}/pause`. |
+| `scell_activate_recurring_invoice` | Resume a paused schedule. `POST /api/v1/recurring-invoices/{id}/activate`. |
+| `scell_cancel_recurring_invoice` | Terminal cancellation. `POST /api/v1/recurring-invoices/{id}/cancel`. |
+| `scell_run_recurring_invoice_now` | Trigger an off-cycle occurrence immediately. `POST /api/v1/recurring-invoices/{id}/run-now`. **With `auto_send` this bills the buyer right away.** |
+
 ## Example Prompts
 
 Once the MCP server is configured, you can use natural language prompts like:

@@ -141,6 +141,24 @@ export interface InvoiceLine {
    * See `VatCategory` for all allowed values.
    */
   category?: import('./vat.js').VatCategory;
+  /**
+   * Supply nature (since 2.32.0). DISCRIMINATES the intra-EU/export exemption:
+   * `'goods'` → `INTRACOM_GOODS` (K) / `EXPORT` (G); `'services'` →
+   * `REVERSE_CHARGE` (AE) / `OUT_OF_SCOPE` (O). Defaults to `services`.
+   * Forwarded as `supply_type`.
+   */
+  supplyType?: 'goods' | 'services';
+  /**
+   * ISO 3166-1 alpha-2 place of supply (art. 259-A CGI override, since 2.32.0).
+   * Forwarded as `place_of_supply`.
+   */
+  placeOfSupply?: string;
+  /**
+   * Justification to keep a divergent tax rate (since 2.32.0). Avoids the
+   * `409 VAT_CORRECTION_REQUIRED` and records the choice for the audit trail.
+   * Forwarded as `vat_override_reason` (max 500 chars).
+   */
+  vatOverrideReason?: string;
   /** Unit of measure (optional) */
   unit?: string;
   /** Product/service code (optional) */
@@ -3425,4 +3443,264 @@ export interface UpdateFiscalStatusInput {
 export interface SimulateThresholdInput {
   amount: number;
   category: RevenueCategory;
+}
+
+// ============================================================================
+// Recurring Invoices (since v2.32.0)
+// ============================================================================
+
+/**
+ * Lifecycle status of a recurring invoice schedule.
+ *
+ * - `active` — The schedule is running; occurrences are generated on each due
+ *   date until the recurrence end is reached.
+ * - `paused` — Temporarily suspended; no occurrence is generated while paused.
+ *   Resume with `scell_activate_recurring_invoice`.
+ * - `completed` — The recurrence end was reached (`end_mode='on_date'` past the
+ *   end date, or `end_mode='after_occurrences'` once `max_occurrences` were
+ *   emitted). Terminal.
+ * - `cancelled` — Manually cancelled with `scell_cancel_recurring_invoice`.
+ *   Terminal — no further occurrence is ever generated.
+ */
+export type RecurringInvoiceStatus =
+  | 'active'
+  | 'paused'
+  | 'completed'
+  | 'cancelled';
+
+/** Unit of the recurrence interval. */
+export type RecurrenceIntervalUnit = 'day' | 'week' | 'month' | 'year';
+
+/**
+ * How the recurrence ends.
+ *
+ * - `never` — Runs indefinitely until manually paused/cancelled (default).
+ * - `on_date` — Stops after `end_date` (inclusive).
+ * - `after_occurrences` — Stops once `max_occurrences` invoices have been
+ *   generated.
+ */
+export type RecurringInvoiceEndMode = 'never' | 'on_date' | 'after_occurrences';
+
+/**
+ * Whether each generated occurrence is emitted automatically or left as a draft.
+ *
+ * - `draft` — Each occurrence creates a DRAFT invoice for human review (it is
+ *   NOT transmitted to the PDP nor emailed). The tenant validates it manually.
+ * - `auto_send` — Each occurrence is submitted to the PDP (PEPPOL / SuperPDP)
+ *   AND emailed to the buyer automatically. Use with care — every occurrence
+ *   bills the buyer.
+ */
+export type RecurringInvoiceEmissionMode = 'draft' | 'auto_send';
+
+/**
+ * Recurrence rule for a recurring invoice schedule.
+ *
+ * The combination of `intervalUnit` + `intervalCount` defines the cadence
+ * (e.g. `intervalUnit='month'`, `intervalCount=1` = monthly; `intervalUnit='week'`,
+ * `intervalCount=2` = every two weeks).
+ *
+ * `dayOfMonth` (for monthly/yearly cadences) and `dayOfWeek` (for weekly
+ * cadences) pin the occurrence to a specific calendar day.
+ *
+ * **Short-month clamping:** `dayOfMonth=31` is clamped to the last day of
+ * shorter months (e.g. Feb 28/29, Apr 30). Same for `29`/`30` in February.
+ *
+ * @since 2.32.0
+ */
+export interface RecurrenceRule {
+  /** Interval unit: day | week | month | year. */
+  intervalUnit: RecurrenceIntervalUnit;
+  /** Number of interval units between occurrences (default 1). */
+  intervalCount?: number;
+  /**
+   * Day of the month (1–31) for monthly/yearly cadences.
+   * `31` is clamped to the last day of shorter months.
+   */
+  dayOfMonth?: number;
+  /** Day of the week (1=Monday … 7=Sunday) for weekly cadences. */
+  dayOfWeek?: number;
+}
+
+/**
+ * A recurring invoice schedule (abonnement / facturation récurrente).
+ *
+ * Defines a template invoice plus a recurrence rule. On each due date Scell.io
+ * generates one occurrence — a real invoice billed to the buyer — either as a
+ * draft (`emissionMode='draft'`) or auto-sent to the PDP + emailed
+ * (`emissionMode='auto_send'`). The schedule keeps running until the recurrence
+ * end is reached (`endMode`) or it is paused/cancelled.
+ *
+ * Anti-IDOR: scoped to the tenant (and optional sub-tenant) resolved from the
+ * `X-API-Key` header.
+ *
+ * @since 2.32.0
+ */
+export interface RecurringInvoice {
+  /** Unique schedule UUID. */
+  id: string;
+  /** Human-readable title of the schedule (e.g. "Abonnement mensuel ACME"). */
+  title: string;
+  /** Current lifecycle status. */
+  status: RecurringInvoiceStatus;
+  /** Sub-tenant UUID (null for master-tenant schedules). */
+  subTenantId: string | null;
+  /** UUID of the buyer registry entry (if set at creation). */
+  buyerId: string | null;
+  /** Buyer company snapshot (null if buyerId was used at creation). */
+  buyer: Company | null;
+  /** Optional shipping address (Factur-X BG-13 shape). */
+  buyerShippingAddress?: ShippingAddress | null;
+  /** Line items rendered on every generated occurrence. */
+  lines: InvoiceLine[];
+  /** Currency (ISO 4217, e.g. "EUR"). */
+  currency: string;
+  /** Output format of the generated invoices: facturx | ubl | cii. */
+  outputFormat: 'facturx' | 'ubl' | 'cii';
+  /** Payment terms text applied to each occurrence. */
+  paymentTerms: string | null;
+  /** Recurrence rule (cadence + calendar pinning). */
+  recurrence: RecurrenceRule;
+  /** First occurrence date (ISO 8601 YYYY-MM-DD). */
+  startDate: string;
+  /** How the recurrence ends. */
+  endMode: RecurringInvoiceEndMode;
+  /** End date (ISO 8601) when endMode='on_date', else null. */
+  endDate: string | null;
+  /** Maximum number of occurrences when endMode='after_occurrences', else null. */
+  maxOccurrences: number | null;
+  /** Whether each occurrence is auto-sent (PDP + email) or left as a draft. */
+  emissionMode: RecurringInvoiceEmissionMode;
+  /** Days before the due date to notify the buyer (null = no pre-notification). */
+  notifyBeforeDays: number | null;
+  /** Number of occurrences already generated. */
+  occurrencesGenerated: number;
+  /** Date of the next scheduled occurrence (ISO 8601), or null if completed/cancelled. */
+  nextRunDate: string | null;
+  /** Date of the last generated occurrence (ISO 8601), or null if none yet. */
+  lastRunDate: string | null;
+  /** Free-form metadata. */
+  metadata?: Record<string, unknown> | null;
+  /** Creation timestamp (ISO 8601 UTC). */
+  createdAt: string;
+  /** Last update timestamp (ISO 8601 UTC). */
+  updatedAt: string;
+}
+
+/**
+ * Input for creating a recurring invoice schedule
+ * (`POST /api/v1/recurring-invoices`).
+ *
+ * Same line shape as `InvoiceInput` (`lines: InvoiceLine[]`). Buyer can be
+ * provided via `buyerId` (registry, snapshot semantics) OR inline through the
+ * flat `buyerName` / `buyerCountry` / … fields. The server auto-generates the
+ * occurrence invoice numbers when each occurrence is emitted.
+ *
+ * NOTE: types use camelCase (LLM-friendly, aligned with
+ * `InvoiceInput.invoiceNumber`). The REST API expects snake_case
+ * (`sub_tenant_id`, `buyer_id`, `buyer_name`, `buyer_country`,
+ * `buyer_is_individual`, `buyer_siret`, `buyer_vat_number`, `buyer_email`,
+ * `buyer_address`, `buyer_shipping_address`, `output_format`, `payment_terms`,
+ * `start_date`, `end_mode`, `end_date`, `max_occurrences`, `emission_mode`,
+ * `notify_before_days`, and on `recurrence`: `interval_unit`, `interval_count`,
+ * `day_of_month`, `day_of_week`) — the MCP server consuming this client config
+ * maps camelCase → snake_case before the POST.
+ *
+ * @since 2.32.0
+ */
+export interface CreateRecurringInvoiceInput {
+  /** Human-readable title of the schedule (required). */
+  title: string;
+  /**
+   * Optional sub-tenant scoping (UUID).
+   * Anti-IDOR: 403 if the sub-tenant does not belong to the API key's tenant.
+   */
+  subTenantId?: string;
+  /**
+   * UUID of an existing Buyer registry entry. When provided, the API snapshots
+   * the current buyer data onto each generated occurrence.
+   */
+  buyerId?: string;
+  /** Inline buyer name (when not using buyerId). */
+  buyerName?: string;
+  /** Inline buyer country (ISO 3166-1 alpha-2). */
+  buyerCountry?: string;
+  /** B2C flag — when true, buyer SIRET / VAT number become optional. */
+  buyerIsIndividual?: boolean;
+  /** Inline buyer SIRET (14 digits, required for French B2B). */
+  buyerSiret?: string;
+  /** Inline buyer VAT number (e.g. FR12345678901). */
+  buyerVatNumber?: string;
+  /** Inline buyer email (used for occurrence delivery when emissionMode='auto_send'). */
+  buyerEmail?: string;
+  /** Inline buyer billing address. */
+  buyerAddress?: {
+    line1: string;
+    line2?: string;
+    postalCode: string;
+    city: string;
+    region?: string;
+    country: string;
+  };
+  /** Optional shipping address (Factur-X BG-13 shape). */
+  buyerShippingAddress?: ShippingAddress;
+  /** Currency (ISO 4217, defaults to EUR). */
+  currency?: string;
+  /** Output format of generated invoices: facturx | ubl | cii (defaults to facturx). */
+  outputFormat?: 'facturx' | 'ubl' | 'cii';
+  /** Payment terms text applied to each occurrence. */
+  paymentTerms?: string;
+  /** Line items rendered on every occurrence (minimum 1, required). */
+  lines: InvoiceLine[];
+  /** Recurrence rule (cadence + calendar pinning, required). */
+  recurrence: RecurrenceRule;
+  /** First occurrence date (ISO 8601 YYYY-MM-DD, required). */
+  startDate: string;
+  /** How the recurrence ends (defaults to 'never'). */
+  endMode?: RecurringInvoiceEndMode;
+  /** End date (ISO 8601) — required when endMode='on_date'. */
+  endDate?: string;
+  /** Maximum occurrences — required when endMode='after_occurrences'. */
+  maxOccurrences?: number;
+  /** Auto-send (PDP + email) or draft each occurrence (defaults to 'draft'). */
+  emissionMode?: RecurringInvoiceEmissionMode;
+  /** Days before the due date to notify the buyer. */
+  notifyBeforeDays?: number;
+  /** Free-form metadata. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Input for updating a recurring invoice schedule (partial update)
+ * (`PUT /api/v1/recurring-invoices/{id}`).
+ *
+ * Every field is optional — only the provided fields are changed. Changing the
+ * recurrence or start date affects FUTURE occurrences only; already generated
+ * occurrences (invoices) are immutable (ISCA).
+ *
+ * @since 2.32.0
+ */
+export interface UpdateRecurringInvoiceInput {
+  title?: string;
+  subTenantId?: string;
+  buyerId?: string;
+  buyerName?: string;
+  buyerCountry?: string;
+  buyerIsIndividual?: boolean;
+  buyerSiret?: string;
+  buyerVatNumber?: string;
+  buyerEmail?: string;
+  buyerAddress?: CreateRecurringInvoiceInput['buyerAddress'];
+  buyerShippingAddress?: ShippingAddress;
+  currency?: string;
+  outputFormat?: 'facturx' | 'ubl' | 'cii';
+  paymentTerms?: string;
+  lines?: InvoiceLine[];
+  recurrence?: RecurrenceRule;
+  startDate?: string;
+  endMode?: RecurringInvoiceEndMode;
+  endDate?: string;
+  maxOccurrences?: number;
+  emissionMode?: RecurringInvoiceEmissionMode;
+  notifyBeforeDays?: number;
+  metadata?: Record<string, unknown>;
 }
