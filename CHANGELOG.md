@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.31.0] - 2026-06-04
+
+### Changed (doc des outils avoir)
+- `scell_create_credit_note` : description enrichie — un avoir **partiel** DOIT
+  sélectionner des lignes de la facture source via `items[].invoice_line_id`
+  (prix + taux de TVA exact hérités par ligne ; multi-taux 20%/5,5%/exonéré OK).
+  Le LLM ne doit pas inventer unit_price/tax_rate. Flow recommandé : appeler d'abord
+  `scell_get_remaining_creditable`.
+- `scell_get_remaining_creditable` : doc de la forme de réponse (items[] avec
+  invoice_line_id/remaining_quantity/tax_rate + can_be_credited).
+
+
 ## [2.30.0] - 2026-06-04
 
 ### Added
