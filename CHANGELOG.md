@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.33.0] - 2026-06-05
+
+### Added
+- **Quote sealing (PAdES + Bitcoin/OpenTimestamps anchoring)**: signed quotes now
+  expose a `sealing` object in their API response. New exported type `QuoteSealing`
+  with fields `is_sealed`, `pades_signed_at`, `signed_pdf_sha256` (the SHA-256 hash
+  anchored on Bitcoin), `ots_status` (`pending` | `confirmed` | `failed`),
+  `ots_submitted_at`, `ots_bitcoin_confirmed_at`, `bitcoin_block_height`, and
+  `ots_proof_base64` (OpenTimestamps receipt). The optional `sealing?` field was
+  added to the `Quote` type.
+- `scell_get_quote` tool description updated so the agent surfaces the seal
+  (PAdES PDF signature + Bitcoin blockchain anchoring) as tamper-evident proof of
+  existence/integrity for accepted quotes.
+
 ## [2.32.0] - 2026-06-04
 
 ### Added

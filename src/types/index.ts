@@ -695,12 +695,43 @@ export interface QuoteAuditEntry {
 }
 
 /**
+ * Cryptographic sealing evidence attached to a signed quote (since v2.33.0).
+ *
+ * Once a quote is accepted/signed, Scell.io seals the resulting PDF with a
+ * PAdES (PDF Advanced Electronic Signatures) signature and anchors its
+ * SHA-256 hash on the Bitcoin blockchain via OpenTimestamps. This provides
+ * independently verifiable, tamper-evident proof of existence and integrity
+ * for the signed document.
+ */
+export interface QuoteSealing {
+  /** Whether the quote's signed PDF has been sealed (PAdES + Bitcoin anchoring) */
+  is_sealed: boolean;
+  /** Timestamp the PAdES signature was applied (ISO 8601), null if not sealed */
+  pades_signed_at: string | null;
+  /** SHA-256 hex digest of the signed PDF — the value anchored on Bitcoin, null if not sealed */
+  signed_pdf_sha256: string | null;
+  /** OpenTimestamps anchoring status: pending (submitted), confirmed (Bitcoin block), or failed */
+  ots_status: 'pending' | 'confirmed' | 'failed' | null;
+  /** Timestamp the hash was submitted to OpenTimestamps calendars (ISO 8601) */
+  ots_submitted_at: string | null;
+  /** Timestamp the Bitcoin anchoring was confirmed (ISO 8601), null while pending */
+  ots_bitcoin_confirmed_at: string | null;
+  /** Bitcoin block height containing the anchor, null while pending */
+  bitcoin_block_height: number | null;
+  /** OpenTimestamps receipt (.ots proof) encoded in base64, null if not sealed */
+  ots_proof_base64: string | null;
+}
+
+/**
  * Quote (devis) response object.
  *
  * A quote is a pre-invoice commercial offer. Once accepted, it can be
  * converted to deposit invoices (`invoice_type=deposit`) and a final
  * balance invoice (`invoice_type=balance`). The conversion preserves
  * buyer / seller snapshots and line items for legal traceability.
+ *
+ * Once signed, the quote's PDF is sealed with PAdES and anchored on the
+ * Bitcoin blockchain via OpenTimestamps; see the `sealing` field.
  *
  * Anti-IDOR: the API scopes all quote operations to the tenant (and
  * optional sub-tenant) resolved from the `X-API-Key` header.
@@ -742,6 +773,11 @@ export interface Quote {
   subTenantId: string | null;
   /** Signature evidence when the buyer has accepted via EU-SES */
   signature: QuoteSignature | null;
+  /**
+   * Cryptographic sealing evidence (PAdES + Bitcoin/OpenTimestamps anchoring).
+   * Present once the quote is signed; absent/undefined on unsigned quotes.
+   */
+  sealing?: QuoteSealing;
   /** Public signed URL for the buyer to view / accept the quote (90-day TTL) */
   publicUrl: string | null;
   /**
