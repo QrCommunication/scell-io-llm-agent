@@ -216,18 +216,18 @@ These tools manage the échéancier de paiement attached to an accepted quote. A
 |------|-------------|
 | `scell_send_invoice_by_email` | **Send an invoice to the buyer by email.** `POST /api/v1/invoices/{id}/send-by-email`. Optional overrides: `recipient_email`, `cc[]`, `message`. If the invoice is `draft`, it is automatically validated before sending (equivalent to a `draft → validated` transition). The recipient is resolved in cascade: explicit override → `buyer_billing_email` snapshot → `buyer_email` snapshot → quote buyer email → **422 `BUYER_HAS_NO_EMAIL`** if none. Returns `InvoiceSendByEmailResult` with `sent_to`, `sent_at`, `message_id`, `cc`. |
 
-### Branding Tools (since v2.13.0)
+### Branding Tools
 
-Email branding allows tenants and sub-tenants to customize the logo, primary color, email footer, and signature on all outbound emails (invoice, credit note, quote). When all required fields (`brand_logo_url`, `brand_primary_color`, `brand_email_footer`) are set, the tenant's / sub-tenant's branding replaces the Scell.io default. Otherwise the default branding is used as fallback.
+Email branding lets tenants and sub-tenants customize the logo, primary color, email footer, and signature on all outbound **emails** (invoice delivery, reminders, signature requests). When all required fields (`brand_logo_url`, `brand_primary_color`, `brand_email_footer`) are set, the tenant's / sub-tenant's branding replaces the Scell.io default; otherwise the default branding is used as fallback. Each tool targets the master tenant by default, OR a sub-tenant when `sub_tenant_id` is provided (anti-IDOR — must belong to the caller).
 
-**Important:** `brand_logo_url` is distinct from `logo_url` (the Factur-X PDF logo). `brand_primary_color` must be `#RRGGBB` (6-digit hex, validated server-side).
+**Important:** `brand_logo_url` is distinct from `logo_url` (the Factur-X PDF logo, managed via invoice templates or `Company.logo_url`). `brand_primary_color` must be `#RRGGBB` (6-digit hex, validated server-side).
 
 | Tool | Description |
 |------|-------------|
-| `scell_get_tenant_branding` | Get the current email branding for the master tenant. `GET /api/v1/tenant/branding`. Returns `Branding` with `is_complete` flag and `missing_fields[]`. |
-| `scell_update_tenant_branding` | Update master-tenant email branding fields. `PATCH /api/v1/tenant/branding` with `BrandingInput`. All fields optional; send only what changes. Set to `null` to clear a field. Returns the updated `Branding`. |
-| `scell_get_sub_tenant_branding` | Get email branding for a specific sub-tenant (anti-IDOR scoped). `GET /api/v1/sub-tenants/{id}/branding`. Returns `Branding`. |
-| `scell_update_sub_tenant_branding` | Update email branding for a specific sub-tenant. `PATCH /api/v1/sub-tenants/{id}/branding` with `BrandingInput`. Returns the updated `Branding`. |
+| `scell_get_branding` | Get the current email branding. `GET /api/v1/branding/tenant` (no `sub_tenant_id`) OR `GET /api/v1/branding/sub-tenants/{id}`. Returns `Branding` with `is_complete` flag and `missing_fields[]`. |
+| `scell_update_branding` | Update email branding fields. `PUT /api/v1/branding/tenant` OR `PUT /api/v1/branding/sub-tenants/{id}` with any subset of `{ brand_logo_url, brand_primary_color, brand_email_footer, brand_email_signature }`. Pass `null` to clear a field. Returns the updated `Branding`. |
+| `scell_upload_branding_logo` | Get a pre-signed S3 PUT URL for the branding logo (PNG/JPEG). `POST /api/v1/branding/tenant/logo-upload-url` OR `.../sub-tenants/{id}/logo-upload-url` with `{ mime_type }`. Returns `{ url, public_url, expires_at, headers }` — PUT the file to `url`, then call `scell_update_branding` with `brand_logo_url = public_url`. |
+| `scell_preview_branding` | Render a live preview of the branded email **before any send**. `GET /api/v1/branding/tenant/preview` OR `.../sub-tenants/{id}/preview`. The `Accept` header negotiates the format: `text/html` (default — ideal for an `<iframe srcdoc>` UI preview) or `application/pdf`. Use after `scell_update_branding` / `scell_upload_branding_logo` so the user can visually confirm logo, color, footer and signature. |
 
 ### Recurring Invoices (since v2.32.0)
 

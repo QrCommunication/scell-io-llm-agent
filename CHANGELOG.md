@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.34.0] - 2026-06-06
+
+### Added
+- **`scell_preview_branding`** tool (Email Branding section): renders a live
+  preview of how a branded email will look with the current branding profile,
+  before sending anything. `GET /api/v1/branding/tenant/preview` (no
+  `sub_tenant_id`) or `GET /api/v1/branding/sub-tenants/{subTenantId}/preview`
+  (anti-IDOR). The `Accept` header negotiates the format (`text/html` default,
+  or `application/pdf`). Use after `scell_update_branding` /
+  `scell_upload_branding_logo` so the user can visually confirm the rendering.
+- Tool count in the generated config bumped **112 → 113**.
+
+### Fixed
+- **`scell_upload_branding_logo`** description corrected: the endpoint is
+  `POST /api/v1/branding/tenant/logo-upload-url` (resp.
+  `/branding/sub-tenants/{id}/logo-upload-url`), the request body uses
+  `mime_type`, and the response field is `url` (not `upload_url`), alongside
+  `public_url` and `expires_at` — aligning the agent guidance with the real
+  backend contract.
+
 ## [2.33.0] - 2026-06-05
 
 ### Added
