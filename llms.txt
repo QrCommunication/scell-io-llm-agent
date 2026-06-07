@@ -1,6 +1,43 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.32.0
+Version: 2.35.0
+
+## v2.35.0 (2026-06-07) — Product catalog (Products + ProductCategories)
+
+A reusable catalog of products/services (label, unit price, default VAT rate,
+unit…), scoped strictly by `(tenant_id, sub_tenant_id)` — same scoping policy as
+the buyers registry. Reference a product via `productId` on an invoice/quote
+**line** to pre-fill it (label, unit price, default VAT rate); mutating a product
+never alters previously emitted invoices (snapshot, ISCA). Products can be grouped
+into categories. Auth: `sk_*`/`pk_*` (tenant key).
+
+New tools (10):
+
+| Tool | Endpoint |
+|------|----------|
+| `scell_list_products` | `GET /api/v1/products` (filters: q, revenue_category, product_category_id, is_active, sub_tenant_id, page, per_page) |
+| `scell_get_product` | `GET /api/v1/products/{id}` |
+| `scell_create_product` | `POST /api/v1/products` (body: name*, unit_price_ht*, product_category_id?, description?, sku?, revenue_category?, unit? [C62], default_tax_rate?, default_discount_rate?, currency? [EUR], is_active?, sub_tenant_id?, metadata?, notes?) |
+| `scell_update_product` | `PATCH /api/v1/products/{id}` (PUT also accepted) |
+| `scell_delete_product` | `DELETE /api/v1/products/{id}` |
+| `scell_list_product_categories` | `GET /api/v1/product-categories` (filters: q, sub_tenant_id, page, per_page) |
+| `scell_get_product_category` | `GET /api/v1/product-categories/{id}` |
+| `scell_create_product_category` | `POST /api/v1/product-categories` (body: name*, color? [#RRGGBB], description?, position?, sub_tenant_id?, metadata?) |
+| `scell_update_product_category` | `PATCH /api/v1/product-categories/{id}` (PUT also accepted) |
+| `scell_delete_product_category` | `DELETE /api/v1/product-categories/{id}` |
+
+`Product` shape: id, tenantId, subTenantId, productCategoryId, name, description,
+sku, revenueCategory ('goods'|'service'|'accommodation'|null), revenueCategoryLabel,
+unit (default 'C62'), unitPriceHt, defaultTaxRate, defaultDiscountRate, currency
+(default 'EUR'), isActive, productCategory (nested|null), metadata, notes,
+createdAt, updatedAt. `ProductCategory` shape: id, tenantId, subTenantId, name,
+color (#RRGGBB|null), description, position, productsCount?, metadata, timestamps.
+
+Invoice/quote line catalog fields (optional, on `InvoiceLine` / invoice & quote
+line inputs): `productId` → `product_id` (pre-fill the line from a catalog
+product), `saveToCatalog` → `save_to_catalog` (server-side upsert of the line as
+a product), `productCategoryId` → `product_category_id` (file the saved product
+under a category).
 
 ## v2.32.0 (2026-06-04) — Recurring invoices (facturation récurrente / abonnements)
 
@@ -1215,7 +1252,7 @@ With `--env staging`:
 
 ---
 
-## Tools Reference — All 44 Tools
+## Tools Reference — All Tools
 
 ### Summary Table
 

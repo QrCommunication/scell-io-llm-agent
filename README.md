@@ -245,6 +245,25 @@ A recurring invoice is an *abonnement*: a template invoice + a recurrence rule. 
 | `scell_cancel_recurring_invoice` | Terminal cancellation. `POST /api/v1/recurring-invoices/{id}/cancel`. |
 | `scell_run_recurring_invoice_now` | Trigger an off-cycle occurrence immediately. `POST /api/v1/recurring-invoices/{id}/run-now`. **With `auto_send` this bills the buyer right away.** |
 
+### Product Catalog (since v2.35.0)
+
+A reusable catalog of products/services (label, unit price, default VAT rate, unit…), scoped strictly by `(tenant_id, sub_tenant_id)` — same scoping policy as the buyers registry. Reference a product via `productId` on an invoice/quote **line** to pre-fill it; mutating a product never alters previously emitted invoices (snapshot, ISCA). Products can be grouped into categories.
+
+| Tool | Description |
+|------|-------------|
+| `scell_list_products` | List catalog products. `GET /api/v1/products`. Filters: `q`, `revenue_category` (`goods`/`service`/`accommodation`), `product_category_id`, `is_active`, `sub_tenant_id`, `page`, `per_page`. Returns `PaginatedResult<Product>`. |
+| `scell_get_product` | Retrieve a product by UUID. `GET /api/v1/products/{id}`. 404 outside caller scope (anti-IDOR). |
+| `scell_create_product` | Create a catalog product. `POST /api/v1/products`. Body: `name` (required), `unit_price_ht` (required), `product_category_id?`, `description?`, `sku?`, `revenue_category?`, `unit?` (default `C62`), `default_tax_rate?`, `default_discount_rate?`, `currency?` (default `EUR`), `is_active?`, `sub_tenant_id?`, `metadata?`, `notes?`. Returns `Product` (201). |
+| `scell_update_product` | Partial update. `PATCH /api/v1/products/{id}` (full `PUT` also accepted). Does NOT propagate to issued invoices (ISCA). |
+| `scell_delete_product` | Delete a product. `DELETE /api/v1/products/{id}`. Historic invoice snapshots remain intact. Returns 204. |
+| `scell_list_product_categories` | List categories. `GET /api/v1/product-categories`. Filters: `q`, `sub_tenant_id`, `page`, `per_page`. Returns `PaginatedResult<ProductCategory>`. |
+| `scell_get_product_category` | Retrieve a category by UUID. `GET /api/v1/product-categories/{id}`. |
+| `scell_create_product_category` | Create a category. `POST /api/v1/product-categories`. Body: `name` (required), `color?` (`#RRGGBB`), `description?`, `position?`, `sub_tenant_id?`, `metadata?`. Returns `ProductCategory` (201). |
+| `scell_update_product_category` | Partial update. `PATCH /api/v1/product-categories/{id}` (full `PUT` also accepted). |
+| `scell_delete_product_category` | Delete a category. `DELETE /api/v1/product-categories/{id}`. Returns 204. |
+
+**Invoice/quote line catalog fields** (since v2.35.0, optional): `productId` (pre-fills the line from a product → `product_id`), `saveToCatalog` (upsert the line as a product → `save_to_catalog`), `productCategoryId` (file the saved product under a category → `product_category_id`).
+
 ## Example Prompts
 
 Once the MCP server is configured, you can use natural language prompts like:

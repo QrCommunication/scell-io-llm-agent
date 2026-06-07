@@ -163,6 +163,22 @@ export interface InvoiceLine {
   unit?: string;
   /** Product/service code (optional) */
   productCode?: string;
+  /**
+   * Pre-fill this line from a catalog product (since 2.35.0). The server copies
+   * the product's label, unit price and default VAT rate; values provided on
+   * this line override them. Forwarded as `product_id`.
+   */
+  productId?: string;
+  /**
+   * Save this line as a catalog product (server-side upsert, since 2.35.0).
+   * Forwarded as `save_to_catalog`.
+   */
+  saveToCatalog?: boolean;
+  /**
+   * File the product saved via `saveToCatalog` under this catalog category
+   * (since 2.35.0). Forwarded as `product_category_id`.
+   */
+  productCategoryId?: string;
 }
 
 /**
@@ -372,19 +388,110 @@ export interface Supplier {
 }
 
 /**
- * Input for creating/updating a Supplier registry entry (since v2.26.0).
+ * Input for updating a Supplier's contact metadata (since v2.26.0).
+ *
+ * **Breaking change in v3.x**: creation and deletion of suppliers via API
+ * are no longer supported (POST/DELETE return 405). Suppliers are derived
+ * from received invoices — the invoice is the source of truth. Only the
+ * contact enrichment fields below remain editable via PATCH.
  */
 export interface SupplierInput {
-  name: string;
-  country: string;
-  billingAddress: Supplier['billingAddress'];
-  isIndividual?: boolean;
-  siret?: string;
-  vatNumber?: string;
-  legalId?: string;
-  legalIdScheme?: string;
   email?: string;
   phone?: string;
+  notes?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Catalog product/service category (since v2.35.0). Groups reusable products,
+ * scoped strictly by (tenant_id, sub_tenant_id) — same scoping policy as the
+ * buyers / suppliers registries.
+ */
+export interface ProductCategory {
+  id: string;
+  tenantId: string;
+  subTenantId: string | null;
+  name: string;
+  /** Hex color (#RRGGBB) for UI badges, or null. */
+  color: string | null;
+  description: string | null;
+  /** Display order (ascending). */
+  position: number;
+  /** Number of products filed under this category (when returned by the API). */
+  productsCount?: number;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Input for creating/updating a product category (since v2.35.0).
+ */
+export interface ProductCategoryInput {
+  name: string;
+  color?: string;
+  description?: string;
+  position?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Catalog product/service (since v2.35.0). Reusable article (label, unit price,
+ * default VAT rate, unit…) scoped strictly by (tenant_id, sub_tenant_id) — same
+ * scoping policy as the buyers registry. Reference a product via `productId` on
+ * an invoice/quote line to pre-fill it. Like a Buyer, the catalog carries the
+ * *current* state of the article — mutating a product does NOT alter previously
+ * emitted invoices (snapshot, ISCA compliance).
+ */
+export interface Product {
+  id: string;
+  tenantId: string;
+  subTenantId: string | null;
+  productCategoryId: string | null;
+  name: string;
+  description: string | null;
+  /** Stock-keeping unit / internal reference. */
+  sku: string | null;
+  /** Fiscal revenue category, or null if unspecified. */
+  revenueCategory: 'goods' | 'service' | 'accommodation' | null;
+  /** Human-readable label for `revenueCategory` (server-derived). */
+  revenueCategoryLabel: string | null;
+  /** UN/ECE Rec 20 unit code (default `C62`). */
+  unit: string;
+  /** Unit price excluding tax. */
+  unitPriceHt: number;
+  /** Default VAT rate (percentage, e.g. 20). */
+  defaultTaxRate: number;
+  /** Default per-line discount rate (percentage), or null. */
+  defaultDiscountRate: number | null;
+  /** ISO 4217 currency code (default `EUR`). */
+  currency: string;
+  isActive: boolean;
+  /** Nested category (eager-loaded) when returned by the API. */
+  productCategory?: ProductCategory | null;
+  metadata?: Record<string, unknown> | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Input for creating/updating a catalog product (since v2.35.0).
+ */
+export interface ProductInput {
+  name: string;
+  unitPriceHt: number;
+  productCategoryId?: string;
+  description?: string;
+  sku?: string;
+  revenueCategory?: 'goods' | 'service' | 'accommodation';
+  /** UN/ECE Rec 20 unit code (default `C62`). */
+  unit?: string;
+  defaultTaxRate?: number;
+  defaultDiscountRate?: number;
+  /** ISO 4217 currency code (default `EUR`). */
+  currency?: string;
+  isActive?: boolean;
   metadata?: Record<string, unknown>;
   notes?: string;
 }

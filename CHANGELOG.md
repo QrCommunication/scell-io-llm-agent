@@ -2,6 +2,77 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-06-07
+
+### BREAKING CHANGES
+
+#### Suppliers Registry — API contract change (derived-from-invoice model)
+
+Suppliers are now read-only entities derived from received invoices. The API
+reflects this: creation and deletion are no longer allowed at the registry
+level (source of truth = invoice). Only contact metadata enrichment remains
+editable.
+
+**Removed tools** (API returns 405):
+- **`scell_create_supplier`** — `POST /api/v1/suppliers` removed. Suppliers are
+  created automatically when an incoming invoice is processed. To add a
+  supplier, create an incoming invoice with its details.
+- **`scell_delete_supplier`** — `DELETE /api/v1/suppliers/{id}` removed.
+  Suppliers derive their lifecycle from the invoices that reference them.
+
+**Restricted tool**:
+- **`scell_update_supplier`** — now maps to `PATCH /api/v1/suppliers/{id}`
+  (was `PUT`). Only `{ email?, phone?, notes?, metadata? }` are accepted.
+  Identity fields (`name`, `country`, `billingAddress`, `siret`, `vatNumber`,
+  `legalId`, `isIndividual`) are immutable — they come from the source invoice.
+  Attempts to update identity fields return 422.
+
+**Restricted type** (`SupplierInput`):
+- The `SupplierInput` interface is now update-only: `{ email?, phone?, notes?, metadata? }`.
+  All identity fields (`name`, `country`, `billingAddress`, `isIndividual`,
+  `siret`, `vatNumber`, `legalId`, `legalIdScheme`) have been removed.
+  Consumers who were using `SupplierInput` to drive `POST /suppliers` payloads
+  must migrate — there is no longer a create endpoint.
+
+**Read tools unchanged**:
+- `scell_list_suppliers` — `GET /api/v1/suppliers` — unchanged
+- `scell_get_supplier` — `GET /api/v1/suppliers/{id}` — unchanged
+
+### Migration guide
+
+| Before (≤2.34.0) | After (3.0.0) |
+|---|---|
+| `scell_create_supplier({ name, country, ... })` | Create an incoming invoice with the supplier's details — the supplier is derived automatically |
+| `scell_delete_supplier(id)` | Not possible — suppliers live as long as their source invoices exist |
+| `scell_update_supplier(id, { name, country, ... })` | `scell_update_supplier(id, { email?, phone?, notes?, metadata? })` — identity fields are read-only |
+
+## [2.35.0] - 2026-06-07
+
+### Added — Product catalog tools (Products + ProductCategories)
+
+New reusable product/service catalog scoped by `(tenant_id, sub_tenant_id)`,
+mirroring the buyers registry. Reference a product via `productId` on an
+invoice/quote **line** to pre-fill it (label, unit price, default VAT rate).
+Mutating a product never alters previously emitted invoices (snapshot, ISCA).
+
+**New tools (10):**
+- `scell_list_products`, `scell_get_product`, `scell_create_product`,
+  `scell_update_product`, `scell_delete_product`
+- `scell_list_product_categories`, `scell_get_product_category`,
+  `scell_create_product_category`, `scell_update_product_category`,
+  `scell_delete_product_category`
+
+**New types** (`src/types/index.ts`):
+- `Product`, `ProductInput`, `ProductCategory`, `ProductCategoryInput`.
+
+**Invoice/quote line catalog fields** (optional, on `InvoiceLine`):
+- `productId` → `product_id` (pre-fill the line from a catalog product)
+- `saveToCatalog` → `save_to_catalog` (server-side upsert of the line as a product)
+- `productCategoryId` → `product_category_id` (file the saved product under a category)
+
+### Changed
+- `VERSION` (CLI + package) → `2.35.0`.
+
 ## [2.34.0] - 2026-06-06
 
 ### Added
