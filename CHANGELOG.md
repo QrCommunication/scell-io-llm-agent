@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-06-08
+
+### Added — SuperPDP disconnect / reconnect tools (sub-tenants)
+- `scell_disconnect_subtenant_superpdp` — `POST /tenant/sub-tenants/{id}/superpdp-disconnect`. Revoke the SuperPDP tokens and reset `onboarding_status` to `pending_superpdp`.
+- `scell_reconnect_subtenant_superpdp` — `POST /tenant/sub-tenants/{id}/superpdp-reconnect`. Disconnect then return a fresh prefilled authorize URL in one call.
+- `scell_mint_subtenant_widget_token` — `POST /tenant/sub-tenants/{id}/superpdp-widget-token`. Mint a signed 24h token for the `scell-onboarding` web component in `mode="superpdp"`; `{ reset: true }` disconnects before minting.
+
 ## [3.0.0] - 2026-06-07
 
 ### BREAKING CHANGES

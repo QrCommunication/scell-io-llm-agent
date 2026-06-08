@@ -571,6 +571,21 @@ preconditions to negotiate with the human user.
 
 Total tool count now **44** (was 42).
 
+### SuperPDP disconnect / reconnect (mcp-client v3.1.0)
+
+| Tool | Endpoint | Auth |
+|---|---|---|
+| `scell_disconnect_subtenant_superpdp` | `POST /api/v1/tenant/sub-tenants/{id}/superpdp-disconnect` | `sk_*` / Bearer |
+| `scell_reconnect_subtenant_superpdp` | `POST /api/v1/tenant/sub-tenants/{id}/superpdp-reconnect` | `sk_*` / Bearer |
+| `scell_mint_subtenant_widget_token` | `POST /api/v1/tenant/sub-tenants/{id}/superpdp-widget-token` | `sk_*` / Bearer |
+
+`scell_disconnect_subtenant_superpdp` revokes the SuperPDP tokens and resets
+`onboarding_status` to `pending_superpdp` (already-issued invoices stay
+immutable, ISCA). `scell_reconnect_subtenant_superpdp` chains disconnect + a
+fresh `authorize_url`. `scell_mint_subtenant_widget_token` returns a signed 24h
+token (scoped to ONE sub-tenant, anti-IDOR) for the `scell-onboarding` web
+component in `mode="superpdp"`; pass `{ reset: true }` to disconnect before minting.
+
 ### Updated tool
 
 `scell_refresh_subtenant_status` now surfaces a new 422 case explicitly:
