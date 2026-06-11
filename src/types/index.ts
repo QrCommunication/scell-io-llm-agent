@@ -2686,6 +2686,14 @@ export interface InvoiceTemplate {
   name: string;
   description: string | null;
   is_default: boolean;
+  /**
+   * Whether the template participates in the resolution cascade.
+   * When `false`, the template is skipped and the system template is
+   * used instead (default `true`).
+   *
+   * @since 3.2.0
+   */
+  is_enabled: boolean;
   is_available_to_subtenants: boolean;
   logo_url: string | null;
   logo_position: InvoiceTemplateLogoPosition;
@@ -2708,6 +2716,14 @@ export interface InvoiceTemplateInput {
   name: string;
   description?: string;
   is_default?: boolean;
+  /**
+   * Set to `false` to skip this template in the resolution cascade
+   * without deleting it (the system template is used instead).
+   * Default `true`.
+   *
+   * @since 3.2.0
+   */
+  is_enabled?: boolean;
   is_available_to_subtenants?: boolean;
   logo_url?: string;
   logo_position?: InvoiceTemplateLogoPosition;
@@ -2720,6 +2736,80 @@ export interface InvoiceTemplateInput {
   custom_mentions?: string;
   advanced_options?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Document Live Preview Types (since 3.2.0)
+// ============================================================================
+
+/**
+ * A document line used by the live preview renderer.
+ *
+ * @since 3.2.0
+ */
+export interface DocumentPreviewLine {
+  /** Line label (free text). */
+  description: string;
+  /** Quantity (decimal accepted). */
+  quantity: number;
+  /** Unit price, net of tax (HT). */
+  unit_price: number;
+  /** VAT rate in percent (e.g. `20`). */
+  tax_rate: number;
+}
+
+/**
+ * Buyer block for the live document preview (nothing is persisted —
+ * no registry lookup, no upsert).
+ *
+ * @since 3.2.0
+ */
+export interface DocumentPreviewBuyer {
+  name?: string;
+  siret?: string;
+  vat_number?: string;
+  email?: string;
+  phone?: string;
+  is_individual?: boolean;
+  address?: {
+    line1?: string;
+    line2?: string;
+    postal_code?: string;
+    city?: string;
+    country?: string;
+  };
+}
+
+/**
+ * Payload for `POST /api/v1/documents/preview` (tool
+ * `scell_preview_document`).
+ *
+ * Renders a live HTML preview of a draft invoice, credit note or quote
+ * using the REAL template, branding and legal mentions of the issuing
+ * company — nothing is persisted. The response is raw `text/html`
+ * (`Cache-Control: no-store`). 422 on validation error.
+ *
+ * @since 3.2.0
+ */
+export interface DocumentPreviewInput {
+  /** Document family to render (required). */
+  type: 'invoice' | 'credit_note' | 'quote';
+  /** Optional document number shown on the preview (placeholder otherwise). */
+  document_number?: string;
+  /** Optional buyer block (snapshot only — never persisted). */
+  buyer?: DocumentPreviewBuyer;
+  /** Optional lines (max 200). */
+  lines?: DocumentPreviewLine[];
+  /** Issue date, `YYYY-MM-DD`. */
+  issue_date?: string;
+  /** Due date, `YYYY-MM-DD`. */
+  due_date?: string;
+  /** ISO 4217 currency code (default `EUR`). */
+  currency?: string;
+  /** Free-text notes (max 2000 chars). */
+  notes?: string;
+  /** Payment terms text (max 2000 chars). */
+  payment_terms?: string;
 }
 
 // ============================================================================
@@ -3148,6 +3238,22 @@ export interface Branding {
    */
   brand_email_signature: string | null;
   /**
+   * Master switch for custom email branding.
+   * When `false`, all outgoing emails are sent with the default channel
+   * branding (Scell.io / jefacturebien) even if the brand fields are set.
+   *
+   * @since 3.2.0
+   */
+  brand_email_enabled: boolean;
+  /**
+   * READ-ONLY — footer computed server-side from the company identity
+   * (legal name, SIRET, VAT number, address). Used at render time as a
+   * fallback when `brand_email_footer` is empty. Never updatable.
+   *
+   * @since 3.2.0
+   */
+  computed_email_footer: string | null;
+  /**
    * Server-computed flag: `true` when `brand_logo_url`, `brand_primary_color`,
    * and `brand_email_footer` are all non-null (minimum viable branding).
    * When `false`, Scell.io default branding is used as fallback.
@@ -3194,6 +3300,14 @@ export interface BrandingInput {
    * Set to `null` to clear.
    */
   brand_email_signature?: string | null;
+  /**
+   * Master switch for custom email branding.
+   * Set to `false` to send all outgoing emails with the default channel
+   * branding without clearing the stored brand fields.
+   *
+   * @since 3.2.0
+   */
+  brand_email_enabled?: boolean;
 }
 
 // ============================================================================

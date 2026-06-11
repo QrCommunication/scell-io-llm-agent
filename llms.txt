@@ -1,6 +1,74 @@
 # @scell/mcp-client — Scell.io MCP Server for LLMs
 
-Version: 2.35.0
+Version: 3.2.0
+
+## v3.2.0 (2026-06-11) — Document live preview + branding/templates enrichments
+
+### New tool: `scell_preview_document`
+
+Render a live HTML preview of a draft document (invoice, credit note or quote)
+using the REAL template, branding and legal mentions of the issuing company —
+nothing is persisted (no registry lookup, no upsert, no fiscal entry).
+
+| Tool | Endpoint | Auth |
+|---|---|---|
+| `scell_preview_document` | `POST /api/v1/documents/preview` | `sk_*` |
+
+Body (`DocumentPreviewInput`):
+- `type` — `'invoice' | 'credit_note' | 'quote'` (**required**)
+- `document_number?` — string shown on the preview (placeholder otherwise)
+- `buyer?` — `{ name, siret, vat_number, email, phone, is_individual, address { line1, line2, postal_code, city, country } }`
+- `lines?` — max 200, `[{ description, quantity, unit_price, tax_rate }]`
+- `issue_date?`, `due_date?` — `YYYY-MM-DD`
+- `currency?` — ISO 4217
+- `notes?`, `payment_terms?` — ≤ 2000 chars each
+
+Returns raw `text/html` (`Cache-Control: no-store`). 422 on validation error.
+Ideal for an `<iframe srcdoc>` live preview while the user drafts the document.
+
+Example prompt:
+
+```
+"Show me what an invoice for Acme Corp (2 lines: 10h consulting at 150 EUR,
+1 licence at 490 EUR, 20% VAT) would look like with my current template —
+without creating anything."
+```
+
+LLM: call `scell_preview_document` with `type='invoice'`, the buyer block and
+the two lines, then display the returned HTML.
+
+### New tool: `scell_derive_template_colors_from_logo`
+
+| Tool | Endpoint | Auth |
+|---|---|---|
+| `scell_derive_template_colors_from_logo` | `POST /api/v1/invoice-templates/derive-colors-from-email-logo` | `sk_*` |
+
+Extracts the dominant primary/accent colors from the tenant's email branding
+logo (`brand_logo_url`) and applies them to the tenant's default invoice
+template (created on the fly if missing). No body. Returns
+`{ data: InvoiceTemplate }`. Errors: **404** if no email logo is configured;
+**422** if the logo is unreachable or only has neutral colors.
+
+Example prompt: `"Adapte les couleurs de mes factures à mon logo."`
+
+### Updated fields
+
+- `Branding.brand_email_enabled` (boolean, updatable) — `false` = emails sent
+  with the default channel branding (brand fields are kept but ignored).
+- `Branding.computed_email_footer` (string|null, READ-ONLY) — footer computed
+  from the company identity, used at render time when `brand_email_footer`
+  is empty.
+- `InvoiceTemplate.is_enabled` (boolean, default `true`, updatable) — `false`
+  = template skipped by the resolution cascade, system template used instead.
+- `scell_upload_branding_logo` — direct multipart alternative documented:
+  `POST /api/v1/branding/tenant/logo` or
+  `POST /api/v1/branding/sub-tenants/{subTenantId}/logo` (field `logo`,
+  jpeg/png/webp/svg/svgz, max 2 MB, returns the flat `Branding` object).
+- `scell_preview_branding` — non-persisted query overrides documented:
+  `brand_primary_color` (#RRGGBB), `brand_email_footer`,
+  `brand_email_signature`, `brand_logo_url`.
+
+Total tool count now **129** (was 127).
 
 ## v2.35.0 (2026-06-07) — Product catalog (Products + ProductCategories)
 
@@ -3243,6 +3311,7 @@ Tools MCP exposes par le serveur `api.scell.io` :
 - `scell_update_invoice_template` — Modifier un template existant.
 - `scell_delete_invoice_template` — Soft delete d'un template (system protege).
 - `scell_mark_invoice_template_default` — Marquer comme default pour son scope.
+- `scell_derive_template_colors_from_logo` — **(since 3.2.0)** Extraire les couleurs dominantes (primary/accent) du logo email du tenant (`brand_logo_url`) et les appliquer au template par defaut du tenant (cree a la volee si absent). `POST /api/v1/invoice-templates/derive-colors-from-email-logo`, sans body. Retourne `{ data: InvoiceTemplate }`. 404 si aucun logo email configure ; 422 si le logo est inaccessible ou ne contient que des couleurs neutres.
 
 ### Cascade de resolution cote serveur
 
@@ -3254,6 +3323,10 @@ Tools MCP exposes par le serveur `api.scell.io` :
 4. Default system template (scope=system, is_default=true)
 ```
 
+NOTE (since 3.2.0) : un template avec `is_enabled=false` est SAUTE par la
+cascade (le template system est utilise a la place) — utile pour desactiver
+temporairement une personnalisation sans la supprimer.
+
 ### Champs principaux
 
 ```typescript
@@ -3264,6 +3337,7 @@ interface InvoiceTemplate {
   sub_tenant_id: string | null;
   name: string;
   is_default: boolean;
+  is_enabled: boolean;                     // since 3.2.0 — false = template skipped by the cascade (system used)
   is_available_to_subtenants: boolean;     // scope=tenant only
   logo_url: string | null;
   logo_position: 'top-left' | 'top-center' | 'top-right';

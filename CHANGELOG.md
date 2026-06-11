@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-06-11
+
+### Added — Document live preview + branding/templates enrichments
+- `scell_preview_document` — `POST /api/v1/documents/preview`. Render a live HTML preview of a draft document (invoice, credit note or quote) using the REAL template, branding and legal mentions of the issuing company — nothing is persisted. Body: `type` (`'invoice' | 'credit_note' | 'quote'`, required), `document_number?`, `buyer?`, `lines?` (max 200), `issue_date?`, `due_date?`, `currency?`, `notes?`, `payment_terms?`. Returns raw `text/html` (`Cache-Control: no-store`). New types `DocumentPreviewInput`, `DocumentPreviewBuyer`, `DocumentPreviewLine`.
+- `scell_derive_template_colors_from_logo` — `POST /api/v1/invoice-templates/derive-colors-from-email-logo`. Extract the dominant primary/accent colors from the tenant's email branding logo (`brand_logo_url`) and apply them to the tenant's default invoice template (created on the fly if missing). No body. 404 if no email logo is configured; 422 if the logo is unreachable or only has neutral colors.
+- `Branding.brand_email_enabled` (boolean, updatable via `BrandingInput` — `false` = emails sent with the default channel branding) and `Branding.computed_email_footer` (string|null, READ-ONLY — footer computed from the company identity, used at render time when `brand_email_footer` is empty).
+- `InvoiceTemplate.is_enabled` (boolean, default `true` — `false` = template skipped by the resolution cascade, system template used instead), updatable via `InvoiceTemplateInput.is_enabled`.
+- `scell_upload_branding_logo` description now documents the direct multipart alternative `POST /api/v1/branding/tenant/logo` / `POST /api/v1/branding/sub-tenants/{subTenantId}/logo` (field `logo`, jpeg/png/webp/svg/svgz, max 2 MB, returns the flat `Branding` object).
+- `scell_preview_branding` description now documents the non-persisted query overrides `brand_primary_color`, `brand_email_footer`, `brand_email_signature`, `brand_logo_url`.
+
 ## [3.1.0] - 2026-06-08
 
 ### Added — SuperPDP disconnect / reconnect tools (sub-tenants)
