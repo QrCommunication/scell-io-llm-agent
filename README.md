@@ -101,7 +101,7 @@ scell-mcp claude
 
 ## Available Tools
 
-Once configured, your AI assistant will have access to these tools:
+Once configured, your AI assistant will have access to **148 tools** (all prefixed `scell_`). The canonical tool names are defined server-side; the tables below group a representative selection by domain.
 
 ### Health & Authentication
 
@@ -126,10 +126,6 @@ Once configured, your AI assistant will have access to these tools:
 | `scell_create_signature` | Create a new signature request. Optional `sub_tenant_id` in the payload scopes the request to a sub-tenant of the calling tenant (anti-IDOR enforced server-side). **v2.17.0:** supports multi-document bundles via the optional `attachments[]` array (max 10 PJ, 20 Mo cumulated) — signature positions, mentions and initials positions can target a specific document via `documentIndex` (0 = main document, 1..N = attachment N). **v2.27.0:** each signature position accepts an optional `signerIndex` (0-based, mapped to `signer_index`) to assign it to a specific signer; the EU-SES API allows multiple positions per signer (N entries sharing the same `signerIndex`). |
 | `scell_get_signature` | Get signature request status and details |
 | `scell_list_signatures` | List signature requests (`GET /api/v1/signatures`, tenant-scoped via the API key). Filters: `status`, `environment`, `sub_tenant_id`, `page`, `per_page`. The legacy `company_id` filter was removed in the 2026-05-11 backend refonte (`api_keys.company_id` dropped). |
-| `scell_tenant_list_signatures` | **v2.7.0** List signatures for the whole tenant via URL-nested `GET /api/v1/tenant/signatures`. Auth: `sk_*`. Filters: `status`, `environment`, `page`, `per_page`. |
-| `scell_tenant_get_signature` | **v2.7.0** Get a single tenant-scoped signature via `GET /api/v1/tenant/signatures/{id}`. Auth: `sk_*`. |
-| `scell_subtenant_list_signatures` | **v2.7.0** List signatures of one sub-tenant via `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures`. Auth: `sk_*`. Anti-IDOR. |
-| `scell_subtenant_get_signature` | **v2.7.0** Get a single sub-tenant signature via `GET /api/v1/tenant/sub-tenants/{subTenantId}/signatures/{id}`. Auth: `sk_*`. |
 | `scell_download_signed` | Download the signed document |
 | `scell_cancel_signature` | Cancel a pending signature request |
 | `scell_send_reminder` | Send a reminder to pending signers |
@@ -156,9 +152,6 @@ These tools require a tenant API key (`tk_*`) and provide access to the fiscal c
 | `scell_list_fiscal_entries` | List fiscal ledger entries with filters |
 | `scell_get_kill_switch_status` | Check the fiscal kill-switch status |
 | `scell_list_fiscal_rules` | List applicable fiscal rules (VAT rates, etc.) |
-| `scell_download_measures_register` | Download the ISCA measures register as PDF |
-| `scell_download_technical_dossier` | Download the ISCA technical dossier as PDF |
-| `scell_download_self_attestation` | Download the ISCA self-attestation as PDF |
 
 ### Credit Notes (tenant key required)
 
@@ -180,10 +173,9 @@ These tools require a publishable key (`pk_*`) and handle partner tenant onboard
 
 | Tool | Description |
 |------|-------------|
-| `scell_onboarding_create_session` | Create a new onboarding session |
-| `scell_onboarding_get_session` | Get onboarding session status and result |
-| `scell_onboarding_superpdp_authorize` | Start the SuperPDP OAuth2 flow — returns `authorize_url` and `state` |
-| `scell_onboarding_superpdp_callback` | Complete the SuperPDP OAuth2 flow — returns `authorization_code` and tenant |
+| `scell_create_onboarding_session` | Create a new onboarding session |
+| `scell_get_onboarding_session` | Get onboarding session status and result |
+| `scell_authorize_onboarding_superpdp` | Start the SuperPDP OAuth2 flow — returns `authorize_url` and `state` |
 
 ### Sub-Tenant Lifecycle (master tenant `sk_*` or Bearer required)
 
@@ -191,10 +183,10 @@ These tools manage existing sub-tenants of the calling tenant. They are scoped s
 
 | Tool | Description |
 |------|-------------|
-| `scell_get_subtenant_status` | Get the cached SuperPDP onboarding status for a sub-tenant |
-| `scell_refresh_subtenant_status` | Force a fresh poll of SuperPDP (rate-limited 1/min). **Returns `422 MISSING_ACCESS_TOKEN` + `authorize_url` if the sub-tenant never granted access (or the token expired). The LLM should present that URL to the user, or call `scell_start_subtenant_superpdp_authorize` to obtain a fresh one.** |
-| `scell_start_subtenant_superpdp_authorize` | **v2.9.0** Start a SuperPDP OAuth2 flow for an existing sub-tenant whose access token is missing. `POST /api/v1/tenant/sub-tenants/{id}/superpdp-authorize` → `{ authorize_url, state }`. |
-| `scell_resume_url` | Regenerate a 7-day signed resume URL for a sub-tenant whose onboarding is not yet `active` |
+| `scell_get_subtenant_superpdp_status` | Get the cached SuperPDP onboarding status for a sub-tenant |
+| `scell_refresh_subtenant_superpdp_status` | Force a fresh poll of SuperPDP (rate-limited 1/min). **Returns `422 MISSING_ACCESS_TOKEN` + `authorize_url` if the sub-tenant never granted access (or the token expired). The LLM should present that URL to the user, or call `scell_authorize_subtenant_superpdp` to obtain a fresh one.** |
+| `scell_authorize_subtenant_superpdp` | **v2.9.0** Start a SuperPDP OAuth2 flow for an existing sub-tenant whose access token is missing. `POST /api/v1/tenant/sub-tenants/{id}/superpdp-authorize` → `{ authorize_url, state }`. |
+| `scell_get_subtenant_resume_url` | Regenerate a 7-day signed resume URL for a sub-tenant whose onboarding is not yet `active` |
 | `scell_delete_sub_tenant` | **v2.9.0** Delete a sub-tenant via `DELETE /api/v1/tenant/sub-tenants/{id}`. Optional `cascade: boolean` to drop attached Companies atomically. Returns `{ message, companies_deleted }` on success. Possible 422 codes the LLM should surface clearly: `SUB_TENANT_HAS_COMPANIES` (retry with `cascade=true` after user confirmation) and `SUB_TENANT_HAS_FISCAL_ENTRIES` (refusal — ISCA compliance, no force flag; propose to mark inactive instead). |
 | `scell_disconnect_subtenant_superpdp` | **v3.1.0** Disconnect a sub-tenant from SuperPDP via `POST /api/v1/tenant/sub-tenants/{id}/superpdp-disconnect`. Revokes the SuperPDP tokens and resets `onboarding_status` to `pending_superpdp`. Already-issued invoices stay immutable (ISCA); future B2B invoices fall back to paper mode until reconnection. Returns the updated sub-tenant summary. |
 | `scell_reconnect_subtenant_superpdp` | **v3.1.0** Reconnect a sub-tenant to SuperPDP via `POST /api/v1/tenant/sub-tenants/{id}/superpdp-reconnect`. Equivalent to a disconnect followed by a fresh `authorize_url` in a single call → `{ authorize_url, state }`. Present that URL to the user to re-grant access. |
@@ -210,7 +202,7 @@ These tools manage the échéancier de paiement attached to an accepted quote. A
 | `scell_patch_quote_payment_schedule` | **Partial update** — add, update, or remove schedule lines in a single atomic call. `PATCH /api/v1/quotes/{id}/payment-schedule` with `{ add?, update?, remove? }`. Only `pending` lines can be updated or removed. |
 | `scell_delete_quote_payment_schedule` | **Delete all lines** from a quote's schedule. `DELETE /api/v1/quotes/{id}/payment-schedule`. Only allowed when the quote is in `draft` or `sent` status (no line is `invoiced`). |
 | `scell_get_quote_payment_summary` | **Real-time tracker** of invoiced vs. remaining amounts for a quote with an échéancier. `GET /api/v1/quotes/{id}/payment-summary`. Returns `PaymentSummary` with gross/net invoiced, remaining TTC %, overdue lines, and SuperPDP enrichment per invoice. |
-| `scell_convert_quote_schedule_line_to_deposit` | **Convert a specific pending line** into a deposit invoice. `POST /api/v1/quotes/{id}/payment-schedule/lines/{line_id}/convert`. Optional overrides: `due_date`, `label`, `send_email` (auto-validates and sends). Returns `Invoice` with `invoice_type='deposit'`. |
+| `scell_convert_schedule_line_to_invoice` | **Convert a specific pending line** into a deposit invoice. `POST /api/v1/quotes/{id}/payment-schedule/lines/{line_id}/convert`. Optional overrides: `due_date`, `label`, `send_email` (auto-validates and sends). Returns `Invoice` with `invoice_type='deposit'`. |
 | `scell_list_payment_schedule_presets` | **List preset schedules** (e.g. 30/70, 50/50, 30/30/40, 3 monthly instalments). `GET /api/v1/payment-schedule/presets`. Returns `PaymentSchedulePreset[]` with ready-to-use `lines` arrays. Suggest these to users before they create a custom schedule. |
 
 ### Invoice Email Tool (since v2.13.0)
@@ -227,17 +219,17 @@ Email branding lets tenants and sub-tenants customize the logo, primary color, e
 
 | Tool | Description |
 |------|-------------|
-| `scell_get_branding` | Get the current email branding. `GET /api/v1/branding/tenant` (no `sub_tenant_id`) OR `GET /api/v1/branding/sub-tenants/{id}`. Returns `Branding` with `is_complete` flag, `missing_fields[]`, `brand_email_enabled` (boolean — `false` = emails sent with the default channel branding) and `computed_email_footer` (string\|null, **read-only** — footer computed from the company identity, used at render time when `brand_email_footer` is empty). |
-| `scell_update_branding` | Update email branding fields. `PUT /api/v1/branding/tenant` OR `PUT /api/v1/branding/sub-tenants/{id}` with any subset of `{ brand_logo_url, brand_primary_color, brand_email_footer, brand_email_signature, brand_email_enabled }`. Pass `null` to clear a nullable field. Returns the updated `Branding`. |
-| `scell_upload_branding_logo` | Get a pre-signed S3 PUT URL for the branding logo (PNG/JPEG). `POST /api/v1/branding/tenant/logo-upload-url` OR `.../sub-tenants/{id}/logo-upload-url` with `{ mime_type }`. Returns `{ url, public_url, expires_at, headers }` — PUT the file to `url`, then call `scell_update_branding` with `brand_logo_url = public_url`. **Direct multipart alternative:** `POST /api/v1/branding/tenant/logo` OR `POST /api/v1/branding/sub-tenants/{id}/logo` with a multipart field `logo` (jpeg/png/webp/svg/svgz, max 2 MB) — returns the flat `Branding` object directly. |
-| `scell_preview_branding` | Render a live preview of the branded email **before any send**. `GET /api/v1/branding/tenant/preview` OR `.../sub-tenants/{id}/preview`. The `Accept` header negotiates the format: `text/html` (default — ideal for an `<iframe srcdoc>` UI preview) or `application/pdf`. Optional **non-persisted** query overrides: `brand_primary_color` (`#RRGGBB`), `brand_email_footer`, `brand_email_signature`, `brand_logo_url`. Use after `scell_update_branding` / `scell_upload_branding_logo` so the user can visually confirm logo, color, footer and signature. |
+| `scell_get_tenant_branding` | Get the current email branding. `GET /api/v1/branding/tenant` (no `sub_tenant_id`) OR `GET /api/v1/branding/sub-tenants/{id}`. Returns `Branding` with `is_complete` flag, `missing_fields[]`, `brand_email_enabled` (boolean — `false` = emails sent with the default channel branding) and `computed_email_footer` (string\|null, **read-only** — footer computed from the company identity, used at render time when `brand_email_footer` is empty). |
+| `scell_update_tenant_branding` | Update email branding fields. `PUT /api/v1/branding/tenant` OR `PUT /api/v1/branding/sub-tenants/{id}` with any subset of `{ brand_logo_url, brand_primary_color, brand_email_footer, brand_email_signature, brand_email_enabled }`. Pass `null` to clear a nullable field. Returns the updated `Branding`. |
+| `scell_get_tenant_branding_logo_upload_url` | Get a pre-signed S3 PUT URL for the branding logo (PNG/JPEG). `POST /api/v1/branding/tenant/logo-upload-url` OR `.../sub-tenants/{id}/logo-upload-url` with `{ mime_type }`. Returns `{ url, public_url, expires_at, headers }` — PUT the file to `url`, then call `scell_update_tenant_branding` with `brand_logo_url = public_url`. **Direct multipart alternative:** `POST /api/v1/branding/tenant/logo` OR `POST /api/v1/branding/sub-tenants/{id}/logo` with a multipart field `logo` (jpeg/png/webp/svg/svgz, max 2 MB) — returns the flat `Branding` object directly. |
+| `scell_preview_tenant_branding` | Render a live preview of the branded email **before any send**. `GET /api/v1/branding/tenant/preview` OR `.../sub-tenants/{id}/preview`. The `Accept` header negotiates the format: `text/html` (default — ideal for an `<iframe srcdoc>` UI preview) or `application/pdf`. Optional **non-persisted** query overrides: `brand_primary_color` (`#RRGGBB`), `brand_email_footer`, `brand_email_signature`, `brand_logo_url`. Use after `scell_update_tenant_branding` / `scell_get_tenant_branding_logo_upload_url` so the user can visually confirm logo, color, footer and signature. |
 
 ### Document Preview & Template Colors (since v3.2.0)
 
 | Tool | Description |
 |------|-------------|
 | `scell_preview_document` | Render a live HTML preview of a draft document (invoice, credit note or quote) using the **real** template, branding and legal mentions of the issuing company — nothing is persisted. `POST /api/v1/documents/preview`. Body: `type` (`'invoice' \| 'credit_note' \| 'quote'`, required), `document_number?`, `buyer?`, `lines?` (max 200, `[{description, quantity, unit_price, tax_rate}]`), `issue_date?`, `due_date?` (`YYYY-MM-DD`), `currency?` (ISO 4217), `notes?`, `payment_terms?` (≤2000 chars each). Auth: `sk_*`. Returns raw `text/html` (`Cache-Control: no-store`). 422 on validation error. |
-| `scell_derive_template_colors_from_logo` | Extract the dominant primary/accent colors from the tenant's email branding logo (`brand_logo_url`) and apply them to the tenant's default invoice template (created on the fly if missing). `POST /api/v1/invoice-templates/derive-colors-from-email-logo`. No body. Auth: `sk_*`. Returns `{ data: InvoiceTemplate }`. 404 if no email logo is configured; 422 if the logo is unreachable or only has neutral colors. |
+| `scell_derive_template_colors_from_email_logo` | Extract the dominant primary/accent colors from the tenant's email branding logo (`brand_logo_url`) and apply them to the tenant's default invoice template (created on the fly if missing). `POST /api/v1/invoice-templates/derive-colors-from-email-logo`. No body. Auth: `sk_*`. Returns `{ data: InvoiceTemplate }`. 404 if no email logo is configured; 422 if the logo is unreachable or only has neutral colors. |
 
 > **Invoice templates `is_enabled` (since v3.2.0):** `InvoiceTemplate` now carries `is_enabled` (boolean, default `true`). When `false`, the template is skipped by the resolution cascade and the system template is used instead — set it via `scell_create_invoice_template` / `scell_update_invoice_template`.
 

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.5.0] - 2026-06-15
+
+### Changed — Tool documentation aligned on the 148 server-side tools
+- Rewrote the inline `// Available tools (...)` documentation block in `src/config/generator.ts` to list **exactly the 148 canonical `scell_*` tool names** implemented server-side (backend `config/mcp.php`), grouped by domain: Invoices, Credit Notes, Quotes, Payment Schedule, Recurring Invoices, Buyers, Products, Product Categories, Suppliers, Invoice Templates, Branding, Documents, Sub-Tenants & Onboarding, Fiscal, Billing, Stats, Tenant, Incoming Invoices, Signatures, Account/Validation/System/Audit.
+- Corrected the tool counter (was `129` — both the count and the list were stale): the generator block and the `README.md` "Available Tools" section now both state **148 tools**.
+- Removed the phantom/non-existent tool names that the doc previously advertised (e.g. `scell_get_branding`, `scell_update_branding`, `scell_preview_branding`, `scell_upload_branding_logo`, `scell_get_subtenant_status`, `scell_refresh_subtenant_status`, `scell_start_subtenant_superpdp_authorize`, `scell_resume_url`, `scell_onboarding_create_session`, `scell_onboarding_get_session`, `scell_onboarding_superpdp_authorize`, `scell_onboarding_superpdp_callback`, `scell_derive_template_colors_from_logo`, `scell_convert_quote_schedule_line_to_deposit`, `scell_tenant_list_signatures`, `scell_tenant_get_signature`, `scell_subtenant_list_signatures`, `scell_subtenant_get_signature`, `scell_download_measures_register`, `scell_download_technical_dossier`, `scell_download_self_attestation`). Names that had a canonical equivalent were renamed (e.g. `scell_get_branding` → `scell_get_tenant_branding`, `scell_onboarding_create_session` → `scell_create_onboarding_session`, `scell_derive_template_colors_from_logo` → `scell_derive_template_colors_from_email_logo`, `scell_convert_quote_schedule_line_to_deposit` → `scell_convert_schedule_line_to_invoice`); names without any server tool were dropped.
+- Documentation now reflects the full server surface, including the Quotes, Payment Schedule, Recurring Invoices, Buyers, Products, Product Categories, Suppliers, Invoice Templates, Branding, Documents, extended Sub-Tenant onboarding/threshold/fiscal-status, and invoice/billing operation tools.
+
+### Unchanged
+- This package remains a **config generator** only (it generates the JSON pointing MCP clients to `https://api.scell.io/api`). The generated server config — endpoint, the `X-Scell-API-Key` auth header, sandbox `/sandbox` suffix, and env vars — is untouched. All tool logic lives server-side.
+
 ## [3.2.0] - 2026-06-11
 
 ### Added — Document live preview + branding/templates enrichments

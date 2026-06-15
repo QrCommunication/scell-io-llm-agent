@@ -371,9 +371,10 @@ describe('Tool description enrichments (v2.22.0)', () => {
       'converted',
       'cancelled',
     ];
+    const start = generatorJs.lastIndexOf('scell_list_quotes');
     const slice = generatorJs.slice(
-      generatorJs.indexOf('scell_list_quotes'),
-      generatorJs.indexOf('scell_update_quote'),
+      start,
+      generatorJs.indexOf('scell_update_quote', start),
     );
     for (const v of allValues) {
       assert.ok(slice.includes(`'${v}'`), `scell_list_quotes should mention '${v}' — slice: ${slice.slice(0, 400)}`);
@@ -390,9 +391,10 @@ describe('Tool description enrichments (v2.22.0)', () => {
       'expired',
       'error',
     ];
+    const start = generatorJs.lastIndexOf('scell_list_signatures');
     const slice = generatorJs.slice(
-      generatorJs.indexOf('scell_list_signatures'),
-      generatorJs.indexOf('scell_tenant_list_signatures'),
+      start,
+      generatorJs.indexOf('scell_download_signed', start),
     );
     for (const v of allValues) {
       assert.ok(slice.includes(`'${v}'`), `scell_list_signatures should mention '${v}'`);
@@ -400,9 +402,10 @@ describe('Tool description enrichments (v2.22.0)', () => {
   });
 
   it('scell_list_signatures mentions all 4 SignatureArchiveStatus values', () => {
+    const start = generatorJs.lastIndexOf('scell_list_signatures');
     const slice = generatorJs.slice(
-      generatorJs.indexOf('scell_list_signatures'),
-      generatorJs.indexOf('scell_tenant_list_signatures'),
+      start,
+      generatorJs.indexOf('scell_download_signed', start),
     );
     for (const v of ['pending', 'archived', 'glacier', 'error']) {
       assert.ok(
@@ -413,9 +416,10 @@ describe('Tool description enrichments (v2.22.0)', () => {
   });
 
   it('scell_list_credit_notes mentions both status (draft|sent) and type (partial|total) filters', () => {
+    const start = generatorJs.lastIndexOf('scell_list_credit_notes');
     const slice = generatorJs.slice(
-      generatorJs.indexOf('scell_list_credit_notes'),
-      generatorJs.indexOf('scell_get_credit_note'),
+      start,
+      generatorJs.indexOf('scell_get_credit_note', start),
     );
     for (const v of ['draft', 'sent', 'partial', 'total']) {
       assert.ok(
@@ -426,9 +430,10 @@ describe('Tool description enrichments (v2.22.0)', () => {
   });
 
   it('scell_list_invoices mentions InvoiceArchiveStatus values', () => {
+    const start = generatorJs.lastIndexOf('scell_list_invoices');
     const slice = generatorJs.slice(
-      generatorJs.indexOf('scell_list_invoices'),
-      generatorJs.indexOf('scell_download_invoice'),
+      start,
+      generatorJs.indexOf('scell_download_invoice', start),
     );
     for (const v of ['pending', 'archived', 'glacier']) {
       assert.ok(
@@ -438,7 +443,7 @@ describe('Tool description enrichments (v2.22.0)', () => {
     }
   });
 
-  it('scell_get_subtenant_status mentions all 6 SubTenantOnboardingStatus values', () => {
+  it('scell_get_subtenant_superpdp_status mentions all 6 SubTenantOnboardingStatus values', () => {
     const allValues = [
       'pending_superpdp',
       'superpdp_redirected',
@@ -447,12 +452,13 @@ describe('Tool description enrichments (v2.22.0)', () => {
       'active',
       'superpdp_failed',
     ];
+    const start = generatorJs.lastIndexOf('scell_get_subtenant_superpdp_status');
     const slice = generatorJs.slice(
-      generatorJs.indexOf('scell_get_subtenant_status'),
-      generatorJs.indexOf('scell_refresh_subtenant_status'),
+      start,
+      generatorJs.indexOf('scell_refresh_subtenant_superpdp_status', start),
     );
     for (const v of allValues) {
-      assert.ok(slice.includes(`'${v}'`), `scell_get_subtenant_status should mention '${v}'`);
+      assert.ok(slice.includes(`'${v}'`), `scell_get_subtenant_superpdp_status should mention '${v}'`);
     }
   });
 });
