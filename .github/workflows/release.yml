@@ -17,11 +17,11 @@ jobs:
       contents: read
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
-        node-version: '24'
+        node-version: '26'
         cache: npm
     - name: Install dependencies
       run: npm ci
@@ -42,32 +42,36 @@ jobs:
       RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
-        node-version: '24'
+        node-version: '26'
         registry-url: https://registry.npmjs.org
     - name: Resolve release version
-      id: version
       run: |
         if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
           VERSION="$DISPATCH_VERSION"
-        else
+        elif [ "$EVENT_NAME" = "push" ] && [[ "$RELEASE_TAG" == v* ]]; then
           VERSION="${RELEASE_TAG#v}"
-        fi
-        if [ -z "$VERSION" ]; then
-          echo "::error::No version resolved (release tag or workflow input missing)"
+        else
+          echo "::error::Unsupported release event or tag prefix"
           exit 1
         fi
-        echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+        if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          echo "::error::Release version must be a stable x.y.z version"
+          exit 1
+        fi
+        PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+        if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+          echo "::error::Release version must match the committed package.json version"
+          exit 1
+        fi
     - name: Install dependencies
       run: npm ci
-    - name: Sync package version with release
-      env:
-        RESOLVED_VERSION: ${{ steps.version.outputs.VERSION }}
-      run: npm version "$RESOLVED_VERSION" --no-git-tag-version --allow-same-version
     - name: Build
       run: npm run build
+    - name: Test
+      run: npm test
     - name: Publish to npm
       run: npm publish --access public --provenance=false

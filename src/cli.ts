@@ -6,6 +6,8 @@
  * Generate MCP configuration for various clients
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   generateClaudeDesktopConfig,
   generateCursorConfig,
@@ -16,7 +18,9 @@ import {
 } from './config/generator.js';
 import type { ScellMcpConfig } from './types/index.js';
 
-const VERSION = '3.2.0';
+const { version: VERSION } = JSON.parse(
+  readFileSync(join(__dirname, '../package.json'), 'utf8'),
+) as { version: string };
 
 const HELP_TEXT = `
 Scell.io MCP Configuration Generator v${VERSION}

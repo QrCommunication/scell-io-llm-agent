@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.5.1] - 2026-10-16
+
+### Fixed
+- CLI version and help now read the manifest shipped with the package, including when invoked from another working directory.
+- Added archive-based regression tests that detect the former hardcoded CLI version.
+
+### Maintenance
+- Updated development dependencies to TypeScript 7.0.2 and Node types 26.6.5.
+- Pinned the latest checkout/setup-node action releases and added Node 24/26 to CI while preserving the declared Node 18 compatibility checks.
+- Release tags and manual versions must match the committed package version; publishing no longer rewrites it after validation.
+
 ## [3.5.0] - 2026-06-15
 
 ### Changed — Tool documentation aligned on the 148 server-side tools
